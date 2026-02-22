@@ -13,6 +13,7 @@
 ### Task 1: Silent WebSocket reconnection in extension
 
 **Files:**
+
 - Modify: `src/extension/background.ts:1-167`
 - Test: `src/__tests__/extension/background.test.ts`
 
@@ -140,6 +141,7 @@ git commit -m "feat(extension): silent WebSocket reconnection with fetch probe"
 ### Task 2: Reactive media key lifecycle in Electron
 
 **Files:**
+
 - Modify: `src/main/index.ts:1-176`
 - Test: `src/main/__tests__/index.test.ts`
 
@@ -227,9 +229,7 @@ function syncMediaKeys(): void {
 
 // Update updateTrayState() to also call syncMediaKeys():
 function updateTrayState(): void {
-  const state: TrayState = !enabled || !lastMeetStatus.active
-    ? 'idle'
-    : lastMeetStatus.muted ? 'muted' : 'in-call';
+  const state: TrayState = !enabled || !lastMeetStatus.active ? 'idle' : lastMeetStatus.muted ? 'muted' : 'in-call';
   console.log(`${TAG} updateTrayState() → ${state}`);
   tray.setState(state);
   syncConsume();
@@ -259,6 +259,7 @@ Expected: PASS
 **Step 5: Update existing tests that assumed polling or eager startup**
 
 Tests to update in `src/main/__tests__/index.test.ts`:
+
 - `'starts media keys when accessibility is trusted'` — now expects start NOT called at app ready (only on call active)
 - `'does not start media keys when accessibility is not trusted'` — same
 - `'periodic poll'` describe block — remove entirely (polling is gone)
@@ -286,6 +287,7 @@ git commit -m "feat(main): reactive media key lifecycle driven by Meet call stat
 ### Task 3: Integration verification and cleanup
 
 **Files:**
+
 - Review: `src/extension/background.ts`, `src/main/index.ts`
 - Test: all test files
 
@@ -297,6 +299,7 @@ Expected: ALL PASS, coverage thresholds met.
 **Step 2: Verify no dead code remains**
 
 Check that:
+
 - `POLL_INTERVAL_MS` constant is removed from `src/main/index.ts`
 - No unused imports remain
 - The `handleMediaKey()` function still works correctly (it queries status as fallback when `lastMeetStatus.active` is false, which is fine — keeps working as safety net for race conditions)

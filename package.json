@@ -2,6 +2,27 @@
   "name": "meetpods",
   "version": "0.1.0",
   "description": "Toggle Google Meet mute via AirPods media keys",
+  "author": "Vinicius Melo <vinimelo@riseup.net>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vinimlo/meetpods.git"
+  },
+  "homepage": "https://github.com/vinimlo/meetpods#readme",
+  "bugs": {
+    "url": "https://github.com/vinimlo/meetpods/issues"
+  },
+  "keywords": [
+    "airpods",
+    "google-meet",
+    "mute",
+    "macos",
+    "electron",
+    "media-keys",
+    "chrome-extension"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "main": "dist/main/index.js",
   "scripts": {
     "build:ts": "tsc",
@@ -16,19 +37,28 @@
     "dist": "electron-builder",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.3",
     "@types/chrome": "^0.1.37",
     "@types/node": "22.19.11",
     "@types/ws": "8.18.1",
+    "@typescript-eslint/eslint-plugin": "^8.56.0",
+    "@typescript-eslint/parser": "^8.56.0",
     "@vitest/coverage-v8": "^4.0.18",
     "electron": "35.7.5",
     "electron-builder": "26.8.1",
     "esbuild": "^0.27.3",
+    "eslint": "^10.0.1",
+    "eslint-config-prettier": "^10.1.8",
     "node-addon-api": "8.5.0",
     "node-gyp": "12.2.0",
+    "prettier": "^3.8.1",
     "sharp": "0.34.5",
     "typescript": "5.9.3",
     "vitest": "^4.0.18"

@@ -16,7 +16,10 @@ async function generate() {
   const sizes = [16, 48, 128];
 
   for (const size of sizes) {
-    await sharp(svg).resize(size, size).png().toFile(path.join(iconsDir, `icon${size}.png`));
+    await sharp(svg)
+      .resize(size, size)
+      .png()
+      .toFile(path.join(iconsDir, `icon${size}.png`));
     console.log(`  Created icon${size}.png`);
   }
 

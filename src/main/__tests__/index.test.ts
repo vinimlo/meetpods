@@ -1,48 +1,44 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // ── Hoisted mocks (available inside vi.mock factories) ──────────────
-const {
-  mockApp,
-  mockSystemPreferences,
-  mockMediaKeysInstance,
-  mockBridgeInstance,
-  mockTrayInstance,
-} = vi.hoisted(() => ({
-  mockApp: {
-    dock: { hide: vi.fn() },
-    whenReady: vi.fn(),
-    on: vi.fn(),
-    quit: vi.fn(),
-  },
-  mockSystemPreferences: {
-    isTrustedAccessibilityClient: vi.fn().mockReturnValue(true),
-    getMediaAccessStatus: vi.fn().mockReturnValue('granted'),
-    askForMediaAccess: vi.fn().mockResolvedValue(true),
-  },
-  mockMediaKeysInstance: {
-    start: vi.fn().mockReturnValue(true),
-    stop: vi.fn(),
-    setConsume: vi.fn(),
-    startAudioInput: vi.fn().mockReturnValue(true),
-    stopAudioInput: vi.fn(),
-    on: vi.fn(),
-    emit: vi.fn(),
-  },
-  mockBridgeInstance: {
-    start: vi.fn().mockResolvedValue(undefined),
-    stop: vi.fn(),
-    on: vi.fn(),
-    isConnected: true,
-    queryMeetStatus: vi.fn().mockResolvedValue({ active: true, muted: false, tabId: 1 }),
-    toggleMute: vi.fn().mockResolvedValue({ success: true, muted: true }),
-    send: vi.fn(),
-  },
-  mockTrayInstance: {
-    setState: vi.fn(),
-    flash: vi.fn(),
-    destroy: vi.fn(),
-  },
-}));
+const { mockApp, mockSystemPreferences, mockMediaKeysInstance, mockBridgeInstance, mockTrayInstance } = vi.hoisted(
+  () => ({
+    mockApp: {
+      dock: { hide: vi.fn() },
+      whenReady: vi.fn(),
+      on: vi.fn(),
+      quit: vi.fn(),
+    },
+    mockSystemPreferences: {
+      isTrustedAccessibilityClient: vi.fn().mockReturnValue(true),
+      getMediaAccessStatus: vi.fn().mockReturnValue('granted'),
+      askForMediaAccess: vi.fn().mockResolvedValue(true),
+    },
+    mockMediaKeysInstance: {
+      start: vi.fn().mockReturnValue(true),
+      stop: vi.fn(),
+      setConsume: vi.fn(),
+      startAudioInput: vi.fn().mockReturnValue(true),
+      stopAudioInput: vi.fn(),
+      on: vi.fn(),
+      emit: vi.fn(),
+    },
+    mockBridgeInstance: {
+      start: vi.fn().mockResolvedValue(undefined),
+      stop: vi.fn(),
+      on: vi.fn(),
+      isConnected: true,
+      queryMeetStatus: vi.fn().mockResolvedValue({ active: true, muted: false, tabId: 1 }),
+      toggleMute: vi.fn().mockResolvedValue({ success: true, muted: true }),
+      send: vi.fn(),
+    },
+    mockTrayInstance: {
+      setState: vi.fn(),
+      flash: vi.fn(),
+      destroy: vi.fn(),
+    },
+  }),
+);
 
 // ── Mock: electron ──────────────────────────────────────────────────
 vi.mock('electron', () => ({
@@ -52,12 +48,16 @@ vi.mock('electron', () => ({
 
 // ── Mock: media-key (regular function for `new` compatibility) ───────
 vi.mock('../media-key', () => ({
-  MediaKeyManager: function MediaKeyManager() { return mockMediaKeysInstance; },
+  MediaKeyManager: function MediaKeyManager() {
+    return mockMediaKeysInstance;
+  },
 }));
 
 // ── Mock: native-msg ─────────────────────────────────────────────────
 vi.mock('../native-msg', () => ({
-  ExtensionBridge: function ExtensionBridge() { return mockBridgeInstance; },
+  ExtensionBridge: function ExtensionBridge() {
+    return mockBridgeInstance;
+  },
 }));
 
 // ── Mock: tray ──────────────────────────────────────────────────────
@@ -96,7 +96,9 @@ describe('MeetPods main orchestration', () => {
 
     // Capture app.whenReady().then() callback
     mockApp.whenReady.mockReturnValue({
-      then: vi.fn().mockImplementation((cb: any) => { readyCallback = cb; }),
+      then: vi.fn().mockImplementation((cb: any) => {
+        readyCallback = cb;
+      }),
     });
 
     // Capture app.on() handlers
@@ -147,7 +149,9 @@ describe('MeetPods main orchestration', () => {
       mockSystemPreferences.isTrustedAccessibilityClient.mockReturnValue(true);
 
       mockApp.whenReady.mockReturnValue({
-        then: vi.fn().mockImplementation((cb: any) => { readyCallback = cb; }),
+        then: vi.fn().mockImplementation((cb: any) => {
+          readyCallback = cb;
+        }),
       });
       mockApp.on.mockImplementation((event: string, handler: Function) => {
         appOnHandlers[event] = handler;
@@ -173,7 +177,9 @@ describe('MeetPods main orchestration', () => {
       mockSystemPreferences.isTrustedAccessibilityClient.mockReturnValue(true);
 
       mockApp.whenReady.mockReturnValue({
-        then: vi.fn().mockImplementation((cb: any) => { readyCallback = cb; }),
+        then: vi.fn().mockImplementation((cb: any) => {
+          readyCallback = cb;
+        }),
       });
       mockApp.on.mockImplementation((event: string, handler: Function) => {
         appOnHandlers[event] = handler;
@@ -202,7 +208,9 @@ describe('MeetPods main orchestration', () => {
       mockSystemPreferences.getMediaAccessStatus.mockReturnValue('granted');
 
       mockApp.whenReady.mockReturnValue({
-        then: vi.fn().mockImplementation((cb: any) => { readyCallback = cb; }),
+        then: vi.fn().mockImplementation((cb: any) => {
+          readyCallback = cb;
+        }),
       });
       mockApp.on.mockImplementation((event: string, handler: Function) => {
         appOnHandlers[event] = handler;

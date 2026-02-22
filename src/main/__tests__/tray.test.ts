@@ -14,7 +14,9 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('electron', () => {
   // Tray must be a regular function so `new Tray(...)` works
-  function Tray() { return mocks.trayInst; }
+  function Tray() {
+    return mocks.trayInst;
+  }
   return {
     Tray,
     Menu: {
@@ -66,26 +68,18 @@ describe('MeetPodsTray', () => {
 
   describe('getIcon()', () => {
     it('uses correct icon names for each state', () => {
-      expect(nativeImage.createFromPath).toHaveBeenCalledWith(
-        expect.stringContaining('tray-icon.png')
-      );
+      expect(nativeImage.createFromPath).toHaveBeenCalledWith(expect.stringContaining('tray-icon.png'));
 
       tray.setState('in-call');
-      expect(nativeImage.createFromPath).toHaveBeenCalledWith(
-        expect.stringContaining('tray-icon-active.png')
-      );
+      expect(nativeImage.createFromPath).toHaveBeenCalledWith(expect.stringContaining('tray-icon-active.png'));
 
       tray.setState('muted');
-      expect(nativeImage.createFromPath).toHaveBeenCalledWith(
-        expect.stringContaining('tray-icon-muted.png')
-      );
+      expect(nativeImage.createFromPath).toHaveBeenCalledWith(expect.stringContaining('tray-icon-muted.png'));
     });
 
     it('uses dev path when not packaged', () => {
       tray.setState('idle');
-      expect(nativeImage.createFromPath).toHaveBeenCalledWith(
-        expect.stringContaining('assets/tray-icon.png')
-      );
+      expect(nativeImage.createFromPath).toHaveBeenCalledWith(expect.stringContaining('assets/tray-icon.png'));
     });
 
     it('uses prod path when packaged', () => {
@@ -94,9 +88,7 @@ describe('MeetPodsTray', () => {
       (process as any).resourcesPath = '/app/resources';
 
       tray.setState('idle');
-      expect(nativeImage.createFromPath).toHaveBeenCalledWith(
-        '/app/resources/assets/tray-icon.png'
-      );
+      expect(nativeImage.createFromPath).toHaveBeenCalledWith('/app/resources/assets/tray-icon.png');
 
       (app as any).isPackaged = false;
       (process as any).resourcesPath = origPath;

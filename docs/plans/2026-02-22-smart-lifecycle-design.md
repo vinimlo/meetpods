@@ -13,11 +13,13 @@
 Replace Electron's polling with push-based notifications from the extension.
 
 **Current flow (pull):**
+
 ```
 Electron (setInterval 3s) → queryMeetStatus → Extension → response
 ```
 
 **New flow (push):**
+
 ```
 Extension detects call state change → sends meet_status via WebSocket → Electron reacts
 ```
@@ -27,10 +29,12 @@ The content script already detects call state via MutationObserver + polling. Th
 ### Reactive Lifecycle in Electron
 
 When Electron receives `meet_status` with `active: true` (transition from inactive):
+
 - Start media key listening (`mediaKeys.start()`)
 - Start AUHAL audio input (`startAudioInput()`)
 
 When Electron receives `meet_status` with `active: false` (transition from active):
+
 - Stop media key listening (`mediaKeys.stop()`)
 - Stop AUHAL audio input (`stopAudioInput()`)
 
@@ -51,6 +55,7 @@ Reconnect timer (10s) → fetch('http://127.0.0.1:18432') → failed? skip : con
 `fetch()` failures are silent (caught by `.catch()`), while `new WebSocket()` failures always log to console. This eliminates the console spam entirely.
 
 Additional changes:
+
 - Increase reconnect interval from 5s to 10s
 - Keep `onerror` handler empty (let `onclose` handle cleanup)
 
@@ -75,9 +80,9 @@ Electron (on WS reconnect):
 
 ### Error Handling
 
-| Scenario | Behavior |
-|----------|----------|
-| Electron offline | Extension probes silently, no console errors |
-| Extension crashes mid-call | Electron sees WS disconnect → stops lifecycle |
-| Meet tab closes | Content script stops → background sends active:false |
-| Multiple Meet tabs | Existing logic: tracks per-tab, reports aggregate |
+| Scenario                   | Behavior                                             |
+| -------------------------- | ---------------------------------------------------- |
+| Electron offline           | Extension probes silently, no console errors         |
+| Extension crashes mid-call | Electron sees WS disconnect → stops lifecycle        |
+| Meet tab closes            | Content script stops → background sends active:false |
+| Multiple Meet tabs         | Existing logic: tracks per-tab, reports aggregate    |

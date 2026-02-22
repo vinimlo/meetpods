@@ -6,7 +6,7 @@ mac:
   icon: assets/icon.png
   identity: null
   extendInfo:
-    NSAccessibilityUsageDescription: "MeetPods needs Accessibility access to intercept media key events from AirPods."
+    NSAccessibilityUsageDescription: 'MeetPods needs Accessibility access to intercept media key events from AirPods.'
     NSMicrophoneUsageDescription: "MeetPods needs microphone access to detect AirPods mute gestures and suppress the 'Cannot Control Mic' notification."
 dmg:
   title: MeetPods
@@ -18,9 +18,9 @@ dmg:
       type: link
       path: /Applications
 files:
-  - "dist/main/**/*"
-  - "node_modules/**/*"
-  - "package.json"
+  - 'dist/main/**/*'
+  - 'node_modules/**/*'
+  - 'package.json'
 extraResources:
   - from: src/native/build/Release/media_key_tap.node
     to: native/media_key_tap.node
@@ -29,4 +29,4 @@ extraResources:
   - from: assets/
     to: assets/
     filter:
-      - "*.png"
+      - '*.png'

@@ -28,10 +28,7 @@ async function generate() {
   const svg = fs.readFileSync(svgPath);
 
   // 1024x1024 PNG — electron-builder converts this to .icns
-  await sharp(svg)
-    .resize(1024, 1024)
-    .png()
-    .toFile(path.join(assetsDir, 'icon.png'));
+  await sharp(svg).resize(1024, 1024).png().toFile(path.join(assetsDir, 'icon.png'));
   console.log('Created icon.png (1024x1024)');
 
   console.log('\nDone! electron-builder will convert icon.png → icon.icns at build time.');

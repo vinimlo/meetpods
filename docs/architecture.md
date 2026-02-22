@@ -133,30 +133,31 @@ MeetPods e uma aplicacao de menu bar para macOS que permite usar o gesto de mute
 
 ### `src/native/media_key_tap.cc`
 
-| Funcao | Responsabilidade |
-|--------|-----------------|
-| `eventTapCallback()` | Intercepta NX_SYSDEFINED via CGEventTap |
-| `darwinMuteNotificationCallback()` | Recebe Darwin notification do audioaccessoryd |
-| `auhalInputCallback()` | Render callback — chama AudioUnitRender e descarta |
-| `setupAUHAL()` / `teardownAUHAL()` | Gerencia ciclo de vida do audio unit |
-| `Start()` | Registra CGEventTap, NSEvent monitor, AVAudioApplication handler, Darwin observer |
-| `Stop()` | Limpa todos os recursos |
-| `SetConsume()` | Controla se eventos sao consumidos ou passados adiante |
-| `StartAudioInput()` / `StopAudioInput()` | N-API exports para controle do AUHAL |
+| Funcao                                   | Responsabilidade                                                                  |
+| ---------------------------------------- | --------------------------------------------------------------------------------- |
+| `eventTapCallback()`                     | Intercepta NX_SYSDEFINED via CGEventTap                                           |
+| `darwinMuteNotificationCallback()`       | Recebe Darwin notification do audioaccessoryd                                     |
+| `auhalInputCallback()`                   | Render callback — chama AudioUnitRender e descarta                                |
+| `setupAUHAL()` / `teardownAUHAL()`       | Gerencia ciclo de vida do audio unit                                              |
+| `Start()`                                | Registra CGEventTap, NSEvent monitor, AVAudioApplication handler, Darwin observer |
+| `Stop()`                                 | Limpa todos os recursos                                                           |
+| `SetConsume()`                           | Controla se eventos sao consumidos ou passados adiante                            |
+| `StartAudioInput()` / `StopAudioInput()` | N-API exports para controle do AUHAL                                              |
 
 ### `src/main/index.ts`
 
-| Funcao | Responsabilidade |
-|--------|-----------------|
-| `shouldConsume()` | Decide se media keys devem ser consumidos |
-| `syncConsume()` | Atualiza o estado de consumo no addon nativo |
-| `syncAudioInput()` | Liga/desliga AUHAL conforme estado da chamada |
-| `updateTrayState()` | Atualiza icone do tray e sincroniza tudo |
-| `handleMediaKey()` | Logica principal: query + toggle mute |
+| Funcao              | Responsabilidade                              |
+| ------------------- | --------------------------------------------- |
+| `shouldConsume()`   | Decide se media keys devem ser consumidos     |
+| `syncConsume()`     | Atualiza o estado de consumo no addon nativo  |
+| `syncAudioInput()`  | Liga/desliga AUHAL conforme estado da chamada |
+| `updateTrayState()` | Atualiza icone do tray e sincroniza tudo      |
+| `handleMediaKey()`  | Logica principal: query + toggle mute         |
 
 ### `src/main/media-key.ts`
 
 Wrapper TypeScript sobre o addon nativo. Herda de `EventEmitter` e emite:
+
 - `media-key`: quando uma tecla de midia e pressionada
 - `status`: quando o listener inicia/para
 - `error`: em caso de falha
@@ -164,6 +165,7 @@ Wrapper TypeScript sobre o addon nativo. Herda de `EventEmitter` e emite:
 ### `src/main/native-msg.ts`
 
 Servidor WebSocket na porta 18432 (127.0.0.1 apenas). Gerencia:
+
 - Conexoes de clientes (extensao Chrome)
 - Broadcast de mensagens
 - Request/response com timeout de 2s para `queryMeetStatus` e `toggleMute`
@@ -171,6 +173,7 @@ Servidor WebSocket na porta 18432 (127.0.0.1 apenas). Gerencia:
 ### `src/main/tray.ts`
 
 Gerencia icone no menu bar com 3 estados visuais:
+
 - `idle`: microfone cinza (sem chamada)
 - `in-call`: microfone com ondas (na chamada, mic ligado)
 - `muted`: microfone com risco (na chamada, mutado)
@@ -178,6 +181,7 @@ Gerencia icone no menu bar com 3 estados visuais:
 ### `src/extension/background.ts`
 
 Service Worker que:
+
 - Mantem WebSocket com Electron
 - Rastreia tabs do Google Meet (Map por tabId)
 - Roteia mensagens entre Electron ↔ content script
@@ -186,6 +190,7 @@ Service Worker que:
 ### `src/extension/content.ts`
 
 Injetado em paginas do Google Meet:
+
 - Busca botao de mute via seletores CSS (suporte multi-idioma)
 - MutationObserver para detectar mudancas de estado
 - Faz `.click()` no botao de mute quando solicitado
@@ -194,6 +199,7 @@ Injetado em paginas do Google Meet:
 ### `src/extension/popup.html` + `popup.ts`
 
 UI da extensao mostrando status em tempo real:
+
 - Electron App: Connected / Offline
 - Google Meet: In call / No call
 - Microphone: Mic ON / Muted

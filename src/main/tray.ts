@@ -18,9 +18,7 @@ export class MeetPodsTray {
   }
 
   private getIcon(state: TrayState): Electron.NativeImage {
-    const iconName = state === 'idle' ? 'tray-icon'
-      : state === 'in-call' ? 'tray-icon-active'
-      : 'tray-icon-muted';
+    const iconName = state === 'idle' ? 'tray-icon' : state === 'in-call' ? 'tray-icon-active' : 'tray-icon-muted';
 
     const iconPath = app.isPackaged
       ? path.join(process.resourcesPath, `assets/${iconName}.png`)
@@ -38,9 +36,12 @@ export class MeetPodsTray {
   private getStatusText(): string {
     if (!this.enabled) return 'Disabled';
     switch (this.state) {
-      case 'idle': return 'No active call';
-      case 'in-call': return 'In call — mic ON';
-      case 'muted': return 'In call — MUTED';
+      case 'idle':
+        return 'No active call';
+      case 'in-call':
+        return 'In call — mic ON';
+      case 'muted':
+        return 'In call — MUTED';
     }
   }
 

@@ -12,24 +12,27 @@ A extensao Chrome e o componente que interage com o Google Meet. Ela detecta cha
   "permissions": ["tabs"],
   "host_permissions": ["https://meet.google.com/*"],
   "background": { "service_worker": "background.js" },
-  "content_scripts": [{
-    "matches": ["https://meet.google.com/*"],
-    "js": ["content.js"],
-    "run_at": "document_idle"
-  }]
+  "content_scripts": [
+    {
+      "matches": ["https://meet.google.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
 }
 ```
 
-| Permissao | Motivo |
-|-----------|--------|
-| `tabs` | Detectar quais abas tem Google Meet aberto |
-| `https://meet.google.com/*` | Injetar content script e enviar mensagens |
+| Permissao                   | Motivo                                     |
+| --------------------------- | ------------------------------------------ |
+| `tabs`                      | Detectar quais abas tem Google Meet aberto |
+| `https://meet.google.com/*` | Injetar content script e enviar mensagens  |
 
 ## Componentes
 
 ### background.ts (Service Worker)
 
 **Responsabilidades:**
+
 1. Manter conexao WebSocket com o Electron (porta 18432)
 2. Rastrear tabs do Google Meet em um `Map`
 3. Rotear mensagens entre Electron e content scripts
@@ -51,11 +54,11 @@ Quando multiplas tabs do Meet estao abertas, `getBestMeetTab()` seleciona a mais
 
 **Protocolo WebSocket:**
 
-| Mensagem recebida | Acao |
-|-------------------|------|
-| `query_meet_status` | Envia get_status para content script, responde com meet_status |
-| `toggle_mute` | Envia toggle_mute para content script, responde com mute_toggled |
-| `ping` | Responde com pong |
+| Mensagem recebida   | Acao                                                             |
+| ------------------- | ---------------------------------------------------------------- |
+| `query_meet_status` | Envia get_status para content script, responde com meet_status   |
+| `toggle_mute`       | Envia toggle_mute para content script, responde com mute_toggled |
+| `ping`              | Responde com pong                                                |
 
 **Reconexao:**
 Se o WebSocket fechar, tenta reconectar a cada 5 segundos via `setInterval`.
@@ -70,8 +73,8 @@ Se o WebSocket fechar, tenta reconectar a cada 5 segundos via `setInterval`.
 ```javascript
 const MUTE_BUTTON_SELECTORS = [
   'button[data-is-muted][aria-label*="microphone" i]',
-  'button[data-is-muted][aria-label*="microfone" i]',   // portugues
-  'button[data-is-muted][aria-label*="mikrofon" i]',     // alemao
+  'button[data-is-muted][aria-label*="microfone" i]', // portugues
+  'button[data-is-muted][aria-label*="mikrofon" i]', // alemao
   '[data-tooltip*="microphone" i] button[data-is-muted]',
   '[data-tooltip*="microfone" i] button[data-is-muted]',
 ];
@@ -82,17 +85,14 @@ Suporte multi-idioma via multiplos seletores. O atributo `data-is-muted` do Goog
 **Deteccao de chamada ativa:**
 
 ```javascript
-const CALL_INDICATORS = [
-  '[data-call-ended]',
-  'button[data-is-muted]',
-  '[data-meeting-title]',
-];
+const CALL_INDICATORS = ['[data-call-ended]', 'button[data-is-muted]', '[data-meeting-title]'];
 ```
 
 Se qualquer um desses elementos existe no DOM, ha uma chamada ativa.
 
 **MutationObserver:**
 Monitora mudancas no DOM para detectar transicoes de estado em tempo real:
+
 - `childList: true, subtree: true` — detecta entrada/saida de chamada
 - `attributes: true, attributeFilter: ['data-is-muted', 'aria-label']` — detecta toggle de mute
 
@@ -108,13 +108,14 @@ Simplesmente faz `.click()` no botao de mute encontrado. Aguarda 100ms e verific
 
 UI minimalista com tema escuro mostrando 3 indicadores:
 
-| Indicador | Estados |
-|-----------|---------|
+| Indicador    | Estados                                |
+| ------------ | -------------------------------------- |
 | Electron App | Connected (verde) / Offline (vermelho) |
-| Google Meet | In call (verde) / No call (cinza) |
-| Microphone | Mic ON (verde) / Muted (vermelho) |
+| Google Meet  | In call (verde) / No call (cinza)      |
+| Microphone   | Mic ON (verde) / Muted (vermelho)      |
 
 **Como funciona:**
+
 1. Popup abre → cria WebSocket temporario para o Electron
 2. Envia `query_meet_status` via WebSocket
 3. Tambem consulta background script via `chrome.runtime.sendMessage`

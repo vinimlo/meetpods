@@ -23,7 +23,9 @@ function shouldConsume(): boolean {
 
 function syncConsume(): void {
   const value = shouldConsume();
-  console.log(`${TAG} syncConsume() → ${value} (enabled=${enabled}, connected=${bridge?.isConnected}, meetActive=${lastMeetStatus.active})`);
+  console.log(
+    `${TAG} syncConsume() → ${value} (enabled=${enabled}, connected=${bridge?.isConnected}, meetActive=${lastMeetStatus.active})`,
+  );
   mediaKeys?.setConsume(value);
 }
 
@@ -52,9 +54,7 @@ function syncMediaKeys(): void {
 }
 
 function updateTrayState(): void {
-  const state: TrayState = !enabled || !lastMeetStatus.active
-    ? 'idle'
-    : lastMeetStatus.muted ? 'muted' : 'in-call';
+  const state: TrayState = !enabled || !lastMeetStatus.active ? 'idle' : lastMeetStatus.muted ? 'muted' : 'in-call';
   console.log(`${TAG} updateTrayState() → ${state}`);
   tray.setState(state);
   syncConsume();
@@ -107,7 +107,9 @@ app.whenReady().then(async () => {
   if (micStatus !== 'granted') {
     console.log(`${TAG} Requesting microphone access for AirPods mute gesture support...`);
     const micGranted = await systemPreferences.askForMediaAccess('microphone');
-    console.log(`${TAG} Microphone access ${micGranted ? 'GRANTED' : 'DENIED'} — ${micGranted ? 'AVAudioApplication will suppress notifications' : 'using Darwin notification fallback'}`);
+    console.log(
+      `${TAG} Microphone access ${micGranted ? 'GRANTED' : 'DENIED'} — ${micGranted ? 'AVAudioApplication will suppress notifications' : 'using Darwin notification fallback'}`,
+    );
   }
 
   tray = new MeetPodsTray((newEnabled) => {
@@ -153,7 +155,6 @@ app.whenReady().then(async () => {
   mediaKeys.on('error', (err) => {
     console.error(`${TAG} Media key error:`, err);
   });
-
 });
 
 app.on('window-all-closed', () => {

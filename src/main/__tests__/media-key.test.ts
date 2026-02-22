@@ -129,7 +129,9 @@ describe('MediaKeyManager', () => {
       const mgr = new MediaKeyManager();
 
       const err = new Error('tap failed');
-      mockAddon.start.mockImplementation(() => { throw err; });
+      mockAddon.start.mockImplementation(() => {
+        throw err;
+      });
 
       const errors: any[] = [];
       mgr.on('error', (e) => errors.push(e));
@@ -191,7 +193,9 @@ describe('MediaKeyManager', () => {
       const { MediaKeyManager } = await import('../media-key');
       const mgr = new MediaKeyManager();
 
-      mockAddon.startAudioInput.mockImplementation(() => { throw new Error('no mic'); });
+      mockAddon.startAudioInput.mockImplementation(() => {
+        throw new Error('no mic');
+      });
       expect(mgr.startAudioInput()).toBe(false);
     });
   });
@@ -211,7 +215,9 @@ describe('MediaKeyManager', () => {
       const { MediaKeyManager } = await import('../media-key');
       const mgr = new MediaKeyManager();
 
-      mockAddon.stopAudioInput.mockImplementation(() => { throw new Error('fail'); });
+      mockAddon.stopAudioInput.mockImplementation(() => {
+        throw new Error('fail');
+      });
       // Should not throw
       mgr.stopAudioInput();
       expect(mockAddon.stopAudioInput).toHaveBeenCalledOnce();

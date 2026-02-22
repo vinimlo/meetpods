@@ -2,13 +2,13 @@
 
 ## Pre-requisitos
 
-| Requisito | Versao minima | Nota |
-|-----------|--------------|------|
-| macOS | 12 (Monterey) | CGEventTap requer macOS moderno |
-| macOS (para AirPods mute) | 14 (Sonoma) | AVAudioApplication disponivel a partir do macOS 14 |
-| Node.js | 22+ | Necessario para N-API e node-gyp |
-| Xcode CLT | Qualquer recente | `xcode-select --install` |
-| Google Chrome | Qualquer recente | Para a extensao |
+| Requisito                 | Versao minima    | Nota                                               |
+| ------------------------- | ---------------- | -------------------------------------------------- |
+| macOS                     | 12 (Monterey)    | CGEventTap requer macOS moderno                    |
+| macOS (para AirPods mute) | 14 (Sonoma)      | AVAudioApplication disponivel a partir do macOS 14 |
+| Node.js                   | 22+              | Necessario para N-API e node-gyp                   |
+| Xcode CLT                 | Qualquer recente | `xcode-select --install`                           |
+| Google Chrome             | Qualquer recente | Para a extensao                                    |
 
 ## Instalacao
 
@@ -89,6 +89,7 @@ Se negar, o app nao consegue capturar teclas de midia. Para conceder depois:
 ### Microfone (necessaria para suprimir notificacao AirPods)
 
 Na primeira execucao, macOS tambem pergunta sobre permissao de Microfone. Necessaria para:
+
 - `AVAudioApplication.setInputMuteStateChangeHandler` funcionar
 - AUHAL abrir audio input
 
@@ -161,8 +162,8 @@ mac:
   category: public.app-category.productivity
   target: dmg
   extendInfo:
-    NSAccessibilityUsageDescription: "..."
-    NSMicrophoneUsageDescription: "..."
+    NSAccessibilityUsageDescription: '...'
+    NSMicrophoneUsageDescription: '...'
 extraResources:
   - from: src/native/build/Release/media_key_tap.node
     to: native/media_key_tap.node
@@ -171,6 +172,7 @@ extraResources:
 ```
 
 Pontos importantes:
+
 - `extendInfo` adiciona as chaves de permissao ao Info.plist do app empacotado
 - `extraResources` copia o addon nativo e a extensao Chrome para o pacote final
 - O addon nativo e carregado de `process.resourcesPath` em producao e do caminho de build em desenvolvimento
@@ -187,24 +189,29 @@ docker compose run --rm meetpods npm test
 ## Troubleshooting
 
 ### "Failed to create event tap"
+
 - Permissao de Acessibilidade nao concedida
 - Solucao: System Settings → Privacy & Security → Accessibility
 
 ### Addon nativo nao encontrado
+
 - Precisa fazer `npm run build:native` antes de rodar
 - Em producao, o addon e copiado para `resources/native/`
 
 ### Extensao nao conecta ao Electron
+
 - Verifique se o Electron esta rodando (icone no menu bar)
 - A extensao tenta reconectar a cada 5s automaticamente
 - Logs do service worker em chrome://extensions → MeetPods → service worker
 
 ### "Cannot Control Mic with AirPods Pro" ainda aparece
+
 - Verifique permissao de microfone concedida ao MeetPods
 - Verifique nos logs se "AUHAL: audio input started" aparece ao entrar na chamada
 - Verifique nos logs se "AVAudioApplication mic mute handler registered" aparece ao iniciar
 
 ### Media keys nao funcionam com Bluetooth
+
 - CGEventTap DEVE estar no main run loop (ja esta configurado assim)
 - NSEvent fallback serve como rede de seguranca
 - Verifique nos logs se os eventos estao chegando

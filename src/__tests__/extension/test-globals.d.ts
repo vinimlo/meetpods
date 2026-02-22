@@ -1,5 +1,3 @@
-/* eslint-disable no-var */
-
 /**
  * Extends globalThis so tests can assign mock Chrome APIs, WebSocket, DOM objects, etc.
  * These declarations only apply inside the __tests__ folder (vitest mocks).
