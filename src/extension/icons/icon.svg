@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#16213e"/>
+    </linearGradient>
+    <linearGradient id="mic" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00d4aa"/>
+      <stop offset="100%" stop-color="#00b894"/>
+    </linearGradient>
+  </defs>
+  <!-- Background: rounded square -->
+  <rect width="128" height="128" rx="28" fill="url(#bg)"/>
+  <!-- Microphone body -->
+  <path d="M64 28c-9.94 0-18 8.06-18 18v20c0 9.94 8.06 18 18 18s18-8.06 18-18V46c0-9.94-8.06-18-18-18z" fill="url(#mic)"/>
+  <!-- Microphone arc -->
+  <path d="M38 62v4c0 14.36 11.64 26 26 26s26-11.64 26-26v-4" fill="none" stroke="#00d4aa" stroke-width="5" stroke-linecap="round"/>
+  <!-- Stand -->
+  <line x1="64" y1="92" x2="64" y2="104" stroke="#00d4aa" stroke-width="5" stroke-linecap="round"/>
+  <line x1="52" y1="104" x2="76" y2="104" stroke="#00d4aa" stroke-width="5" stroke-linecap="round"/>
+  <!-- Signal arcs -->
+  <path d="M90 40c5 6 5 20 0 26" fill="none" stroke="#00d4aa" stroke-width="3.5" stroke-linecap="round" opacity="0.6"/>
+  <path d="M98 34c7.5 9 7.5 30 0 38" fill="none" stroke="#00d4aa" stroke-width="2.5" stroke-linecap="round" opacity="0.35"/>
+</svg>

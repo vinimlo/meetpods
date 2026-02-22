@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=320">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg-primary: #0d1117;
+    --bg-card: #161b22;
+    --bg-card-hover: #1c2129;
+    --border: #30363d;
+    --text-primary: #e6edf3;
+    --text-secondary: #8b949e;
+    --text-dim: #484f58;
+    --accent-green: #00d4aa;
+    --accent-green-dim: rgba(0, 212, 170, 0.12);
+    --accent-red: #f85149;
+    --accent-red-dim: rgba(248, 81, 73, 0.12);
+    --accent-amber: #d29922;
+    --accent-amber-dim: rgba(210, 153, 34, 0.12);
+  }
+
+  body {
+    width: 300px;
+    min-height: 180px;
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    overflow: hidden;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 16px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .header-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .header-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .header-text h1 {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+  }
+
+  .header-text span {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.02em;
+  }
+
+  /* Status Section */
+  .status-section {
+    padding: 14px 16px;
+  }
+
+  .status-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    transition: background 0.15s ease;
+  }
+
+  .status-row:hover {
+    background: var(--bg-card-hover);
+  }
+
+  .status-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .status-dot.green {
+    background: var(--accent-green);
+    box-shadow: 0 0 6px var(--accent-green);
+    animation: pulse-green 2s ease-in-out infinite;
+  }
+
+  .status-dot.red {
+    background: var(--accent-red);
+    box-shadow: 0 0 6px var(--accent-red);
+  }
+
+  .status-dot.amber {
+    background: var(--accent-amber);
+    box-shadow: 0 0 6px var(--accent-amber);
+    animation: pulse-amber 2.5s ease-in-out infinite;
+  }
+
+  .status-dot.dim {
+    background: var(--text-dim);
+    box-shadow: none;
+  }
+
+  .status-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .status-badge.connected,
+  .status-badge.mic-on {
+    color: var(--accent-green);
+    background: var(--accent-green-dim);
+  }
+
+  .status-badge.disconnected,
+  .status-badge.muted {
+    color: var(--accent-red);
+    background: var(--accent-red-dim);
+  }
+
+  .status-badge.inactive {
+    color: var(--text-dim);
+    background: rgba(72, 79, 88, 0.15);
+  }
+
+  /* Footer */
+  .footer {
+    padding: 10px 16px 14px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .footer-hint {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .footer-hint kbd {
+    display: inline-block;
+    padding: 1px 5px;
+    font-size: 9px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text-secondary);
+  }
+
+  /* Animations */
+  @keyframes pulse-green {
+    0%, 100% { box-shadow: 0 0 4px var(--accent-green); }
+    50% { box-shadow: 0 0 10px var(--accent-green), 0 0 20px rgba(0, 212, 170, 0.2); }
+  }
+
+  @keyframes pulse-amber {
+    0%, 100% { box-shadow: 0 0 4px var(--accent-amber); }
+    50% { box-shadow: 0 0 10px var(--accent-amber), 0 0 20px rgba(210, 153, 34, 0.2); }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-icon">
+    <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M8 2C6.9 2 6 2.9 6 4v3c0 1.1.9 2 2 2s2-.9 2-2V4c0-1.1-.9-2-2-2z" fill="#00d4aa"/>
+      <path d="M4.5 6.5V7c0 1.93 1.57 3.5 3.5 3.5S11.5 8.93 11.5 7v-.5" stroke="#00d4aa" stroke-width="1" stroke-linecap="round"/>
+      <line x1="8" y1="10.5" x2="8" y2="13" stroke="#00d4aa" stroke-width="1" stroke-linecap="round"/>
+      <line x1="6.5" y1="13" x2="9.5" y2="13" stroke="#00d4aa" stroke-width="1" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <div class="header-text">
+    <h1>MeetPods</h1>
+    <span>v0.1.0</span>
+  </div>
+</div>
+
+<div class="status-section">
+  <div class="status-row" id="row-electron">
+    <div class="status-label">
+      <div class="status-dot dim" id="dot-electron"></div>
+      Electron App
+    </div>
+    <span class="status-badge disconnected" id="badge-electron">Checking</span>
+  </div>
+
+  <div class="status-row" id="row-meet">
+    <div class="status-label">
+      <div class="status-dot dim" id="dot-meet"></div>
+      Google Meet
+    </div>
+    <span class="status-badge inactive" id="badge-meet">No call</span>
+  </div>
+
+  <div class="status-row" id="row-mic">
+    <div class="status-label">
+      <div class="status-dot dim" id="dot-mic"></div>
+      Microphone
+    </div>
+    <span class="status-badge inactive" id="badge-mic">--</span>
+  </div>
+</div>
+
+<div class="footer">
+  <span class="footer-hint">AirPods <kbd>&#x25CF;</kbd> to toggle mute</span>
+</div>
+
+<script src="popup.js"></script>
+</body>
+</html>
