@@ -1,0 +1,7 @@
+node_modules/
+dist/
+build/
+*.node
+.DS_Store
+.worktrees/
+coverage/
