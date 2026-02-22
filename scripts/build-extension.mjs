@@ -10,11 +10,7 @@ const out = resolve(root, 'dist/extension');
 
 // Bundle each entry point as a self-contained IIFE
 await esbuild.build({
-  entryPoints: [
-    resolve(src, 'background.ts'),
-    resolve(src, 'content.ts'),
-    resolve(src, 'popup.ts'),
-  ],
+  entryPoints: [resolve(src, 'background.ts'), resolve(src, 'content.ts'), resolve(src, 'popup.ts')],
   bundle: true,
   format: 'iife',
   outdir: out,

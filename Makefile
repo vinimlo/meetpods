@@ -1,5 +1,6 @@
 .PHONY: install setup dev ext test test-watch coverage \
-       build build-ts build-ext build-native icons dist clean help
+       build build-ts build-ext build-native icons dist clean \
+       lint lint-fix format format-check help
 
 # ── Install (production) ─────────────────────────
 
@@ -72,6 +73,20 @@ dist: build  ## Build .dmg installer (no auto-open)
 clean:  ## Remove all build artifacts
 	rm -rf dist src/native/build
 
+# ── Code Quality ────────────────────────────────
+
+lint:  ## Run ESLint
+	npx eslint src/
+
+lint-fix:  ## Run ESLint with auto-fix
+	npx eslint src/ --fix
+
+format:  ## Format code with Prettier
+	npx prettier --write .
+
+format-check:  ## Check code formatting
+	npx prettier --check .
+
 # ── Help ─────────────────────────────────────────
 
 help:  ## Show available commands
@@ -89,6 +104,9 @@ help:  ## Show available commands
 	@echo ""
 	@echo "  \033[90mBuild:\033[0m"
 	@grep -E '^(build|icons|dist|clean):.*##' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "    \033[36mmake %-12s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "  \033[90mCode quality:\033[0m"
+	@grep -E '^(lint|lint-fix|format|format-check):.*##' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "    \033[36mmake %-12s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 
 .DEFAULT_GOAL := help

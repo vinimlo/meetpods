@@ -63,7 +63,11 @@ function getBestMeetTab(): number | null {
   return best;
 }
 
-async function sendToMeetTab(caller: string, messageType: string, fallback: Record<string, unknown>): Promise<Record<string, unknown>> {
+async function sendToMeetTab(
+  caller: string,
+  messageType: string,
+  fallback: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
   const tabId = getBestMeetTab();
   console.log(`${TAG} ${caller}() — bestTab=${tabId}`);
   if (!tabId) return fallback;
@@ -87,7 +91,9 @@ function toggleMuteOnMeet() {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log(`${TAG} runtime.onMessage: type=${message.type}, from=${sender.tab ? 'tab ' + sender.tab.id : 'popup/internal'}`);
+  console.log(
+    `${TAG} runtime.onMessage: type=${message.type}, from=${sender.tab ? 'tab ' + sender.tab.id : 'popup/internal'}`,
+  );
   switch (message.type) {
     case 'check_electron_status':
       sendResponse({ connected: isWsConnected() });
@@ -98,13 +104,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'status_changed':
       if (isWsConnected()) {
         const tabId = sender.tab?.id ?? null;
-        console.log(`${TAG} Relaying status_changed to Electron: active=${message.active}, muted=${message.muted}, tabId=${tabId}`);
-        ws!.send(JSON.stringify({
-          type: 'meet_status',
-          active: message.active,
-          muted: message.muted,
-          tabId
-        }));
+        console.log(
+          `${TAG} Relaying status_changed to Electron: active=${message.active}, muted=${message.muted}, tabId=${tabId}`,
+        );
+        ws!.send(
+          JSON.stringify({
+            type: 'meet_status',
+            active: message.active,
+            muted: message.muted,
+            tabId,
+          }),
+        );
       }
       return false;
   }

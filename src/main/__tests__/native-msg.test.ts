@@ -46,7 +46,10 @@ function waitForMessage(ws: WebSocket, timeout = 2000): Promise<any> {
 
 function closeClient(ws: WebSocket): Promise<void> {
   return new Promise((resolve) => {
-    if (ws.readyState === WebSocket.CLOSED) { resolve(); return; }
+    if (ws.readyState === WebSocket.CLOSED) {
+      resolve();
+      return;
+    }
     ws.on('close', () => resolve());
     ws.close();
   });
@@ -105,7 +108,9 @@ describe('ExtensionBridge', () => {
       await conn2P;
 
       let disconnected = false;
-      bridge.on('disconnected', () => { disconnected = true; });
+      bridge.on('disconnected', () => {
+        disconnected = true;
+      });
 
       await closeClient(client1);
       await new Promise((r) => setTimeout(r, 100));
@@ -175,8 +180,12 @@ describe('ExtensionBridge', () => {
       await connP;
 
       let emitted = false;
-      bridge.on('meet-status', () => { emitted = true; });
-      bridge.on('mute-toggled', () => { emitted = true; });
+      bridge.on('meet-status', () => {
+        emitted = true;
+      });
+      bridge.on('mute-toggled', () => {
+        emitted = true;
+      });
 
       client.send(JSON.stringify({ type: 'unknown_type' }));
       await new Promise((r) => setTimeout(r, 100));
@@ -210,7 +219,6 @@ describe('ExtensionBridge', () => {
       await closeClient(client1);
       await closeClient(client2);
     });
-
   });
 
   describe('queryMeetStatus()', () => {
@@ -225,13 +233,15 @@ describe('ExtensionBridge', () => {
       client.on('message', (data: any) => {
         const msg = JSON.parse(data.toString());
         if (msg.type === 'query_meet_status') {
-          client.send(JSON.stringify({
-            type: 'meet_status',
-            active: true,
-            muted: true,
-            tabId: 5,
-            requestId: msg.requestId,
-          }));
+          client.send(
+            JSON.stringify({
+              type: 'meet_status',
+              active: true,
+              muted: true,
+              tabId: 5,
+              requestId: msg.requestId,
+            }),
+          );
         }
       });
 
@@ -271,22 +281,26 @@ describe('ExtensionBridge', () => {
         const msg = JSON.parse(data.toString());
         if (msg.type === 'query_meet_status') {
           // First: wrong requestId
-          client.send(JSON.stringify({
-            type: 'meet_status',
-            active: false,
-            muted: false,
-            tabId: null,
-            requestId: 'wrong-id',
-          }));
+          client.send(
+            JSON.stringify({
+              type: 'meet_status',
+              active: false,
+              muted: false,
+              tabId: null,
+              requestId: 'wrong-id',
+            }),
+          );
           // Then: correct one
           setTimeout(() => {
-            client.send(JSON.stringify({
-              type: 'meet_status',
-              active: true,
-              muted: false,
-              tabId: 2,
-              requestId: msg.requestId,
-            }));
+            client.send(
+              JSON.stringify({
+                type: 'meet_status',
+                active: true,
+                muted: false,
+                tabId: 2,
+                requestId: msg.requestId,
+              }),
+            );
           }, 50);
         }
       });
@@ -310,12 +324,14 @@ describe('ExtensionBridge', () => {
       client.on('message', (data: any) => {
         const msg = JSON.parse(data.toString());
         if (msg.type === 'toggle_mute') {
-          client.send(JSON.stringify({
-            type: 'mute_toggled',
-            success: true,
-            muted: true,
-            requestId: msg.requestId,
-          }));
+          client.send(
+            JSON.stringify({
+              type: 'mute_toggled',
+              success: true,
+              muted: true,
+              requestId: msg.requestId,
+            }),
+          );
         }
       });
 
@@ -361,7 +377,7 @@ describe('ExtensionBridge', () => {
       bridge = setup.bridge;
 
       bridge.stop();
-      bridge.stop();  // second stop should not throw
+      bridge.stop(); // second stop should not throw
       bridge = null;
     });
   });

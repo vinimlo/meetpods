@@ -8,14 +8,14 @@ O addon nativo (`src/native/media_key_tap.cc`) e escrito em Objective-C++ e comp
 
 ### Frameworks linkados
 
-| Framework | Uso |
-|-----------|-----|
-| CoreGraphics | CGEventTap para interceptar teclas de midia |
+| Framework      | Uso                                                    |
+| -------------- | ------------------------------------------------------ |
+| CoreGraphics   | CGEventTap para interceptar teclas de midia            |
 | CoreFoundation | CFRunLoop, CFNotificationCenter (Darwin notifications) |
-| AppKit | NSEvent globalMonitor |
-| AVFoundation | AVAudioApplication (handler de mute dos AirPods) |
-| CoreAudio | AudioObjectGetPropertyData (device ID do mic) |
-| AudioToolbox | AudioUnit (AUHAL para audio input) |
+| AppKit         | NSEvent globalMonitor                                  |
+| AVFoundation   | AVAudioApplication (handler de mute dos AirPods)       |
+| CoreAudio      | AudioObjectGetPropertyData (device ID do mic)          |
+| AudioToolbox   | AudioUnit (AUHAL para audio input)                     |
 
 ### Configuracao em binding.gyp
 
@@ -24,12 +24,18 @@ O addon nativo (`src/native/media_key_tap.cc`) e escrito em Objective-C++ e comp
   "xcode_settings": {
     "OTHER_CFLAGS": ["-ObjC++"],
     "OTHER_LDFLAGS": [
-      "-framework", "CoreGraphics",
-      "-framework", "CoreFoundation",
-      "-framework", "AppKit",
-      "-framework", "AVFoundation",
-      "-framework", "CoreAudio",
-      "-framework", "AudioToolbox"
+      "-framework",
+      "CoreGraphics",
+      "-framework",
+      "CoreFoundation",
+      "-framework",
+      "AppKit",
+      "-framework",
+      "AVFoundation",
+      "-framework",
+      "CoreAudio",
+      "-framework",
+      "AudioToolbox"
     ]
   }
 }
@@ -48,14 +54,14 @@ O output fica em `src/native/build/Release/media_key_tap.node`.
 
 ## Exports N-API
 
-| Export | Assinatura JS | Descricao |
-|--------|--------------|-----------|
-| `start(callback)` | `(key: string, keyDown: boolean) => void` | Inicia todos os listeners |
-| `stop()` | `() => void` | Para e limpa todos os recursos |
-| `setConsume(bool)` | `(consume: boolean) => void` | Define se eventos sao consumidos |
-| `isActive()` | `() => boolean` | Verifica se o event tap esta ativo |
-| `startAudioInput()` | `() => boolean` | Inicia AUHAL (retorna true se ok) |
-| `stopAudioInput()` | `() => void` | Para AUHAL |
+| Export              | Assinatura JS                             | Descricao                          |
+| ------------------- | ----------------------------------------- | ---------------------------------- |
+| `start(callback)`   | `(key: string, keyDown: boolean) => void` | Inicia todos os listeners          |
+| `stop()`            | `() => void`                              | Para e limpa todos os recursos     |
+| `setConsume(bool)`  | `(consume: boolean) => void`              | Define se eventos sao consumidos   |
+| `isActive()`        | `() => boolean`                           | Verifica se o event tap esta ativo |
+| `startAudioInput()` | `() => boolean`                           | Inicia AUHAL (retorna true se ok)  |
+| `stopAudioInput()`  | `() => void`                              | Para AUHAL                         |
 
 ## CGEventTap
 
@@ -79,6 +85,7 @@ eventPort = CGEventTapCreate(
 ### Detalhes criticos
 
 **Must run on main run loop:**
+
 ```cpp
 CFRunLoopAddSource(CFRunLoopGetMain(), eventSource, kCFRunLoopCommonModes);
 ```
@@ -104,6 +111,7 @@ bool keyDown = ((keyFlags & 0xFF00) >> 8) == 0xA;  // 0xA = key down
 ```
 
 Codigos relevantes:
+
 - `NX_KEYTYPE_PLAY` (16): Play/Pause
 - `NX_KEYTYPE_NEXT` (17): Proxima faixa
 - `NX_KEYTYPE_PREVIOUS` (18): Faixa anterior
@@ -167,6 +175,7 @@ O render callback simplesmente chama `AudioUnitRender()` para puxar os dados e n
 ### Cleanup
 
 `teardownAUHAL()` faz na ordem:
+
 1. `AudioOutputUnitStop`
 2. `AudioUnitUninitialize`
 3. `AudioComponentInstanceDispose`
@@ -193,9 +202,9 @@ O `NonBlockingCall` e seguro para chamar de qualquer thread e enfileira a execuc
 
 ## Variaveis Atomicas
 
-| Variavel | Tipo | Uso |
-|----------|------|-----|
-| `lastTapEventTimeMs` | `atomic<uint64_t>` | Dedup entre CGEventTap e NSEvent |
+| Variavel                | Tipo               | Uso                                     |
+| ----------------------- | ------------------ | --------------------------------------- |
+| `lastTapEventTimeMs`    | `atomic<uint64_t>` | Dedup entre CGEventTap e NSEvent        |
 | `lastAirpodsMuteTimeMs` | `atomic<uint64_t>` | Dedup entre AVAudioApplication e Darwin |
 
 Usamos atomics ao inves de mutexes porque os acessos sao simples load/store e nao precisamos de ordering complexo. Sao usados por multiplas threads simultaneamente (main thread, event tap thread, Darwin notification thread).

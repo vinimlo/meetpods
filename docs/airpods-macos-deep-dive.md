@@ -52,14 +52,14 @@ CFNotificationCenterAddObserver(
 
 ### Caracteristicas
 
-| Propriedade | Valor |
-|------------|-------|
-| Permissao de microfone | NAO necessaria |
-| Audio session ativa | NAO necessaria |
-| Confiabilidade | Alta — dispara sempre que o gesto ocorre |
-| Tipo de API | Privada (Apple pode mudar a qualquer momento) |
-| Payload/dados | Nenhum — so notifica que aconteceu, sem detalhes |
-| Suprime notificacao | NAO |
+| Propriedade            | Valor                                            |
+| ---------------------- | ------------------------------------------------ |
+| Permissao de microfone | NAO necessaria                                   |
+| Audio session ativa    | NAO necessaria                                   |
+| Confiabilidade         | Alta — dispara sempre que o gesto ocorre         |
+| Tipo de API            | Privada (Apple pode mudar a qualquer momento)    |
+| Payload/dados          | Nenhum — so notifica que aconteceu, sem detalhes |
+| Suprime notificacao    | NAO                                              |
 
 ### Limitacoes
 
@@ -77,6 +77,7 @@ CFNotificationCenterAddObserver(
 ### O que e
 
 API oficial da Apple introduzida no macOS 14 (Sonoma) / iOS 17. E a unica maneira suportada de:
+
 1. Detectar o gesto de mute dos AirPods
 2. **Suprimir** a notificacao "Cannot Control Mic"
 
@@ -100,9 +101,11 @@ if (@available(macOS 14.0, *)) {
 **Registrar o handler NAO E SUFICIENTE.** O handler so e invocado quando o app tem audio I/O ativo.
 
 Do header `AVAudioApplication.h` da Apple:
+
 > "this notification will only be dispatched for state changes when there is an active record session"
 
 Na pratica, isso significa que o app precisa estar **ativamente puxando dados do microfone**. Sem isso:
+
 - O handler registra com sucesso (sem erro)
 - Mas **nunca e chamado**
 - A notificacao "Cannot Control Mic" aparece normalmente
@@ -139,6 +142,7 @@ Callback:
 ### Por que dinamico (ligado a chamada)
 
 Se o AUHAL ficasse ativo o tempo todo, o indicador laranja de microfone apareceria permanentemente no menu bar do macOS. Ao ligar somente durante chamadas:
+
 - O indicador aparece quando Chrome ja mostra um (por causa do Meet)
 - Desaparece quando a chamada termina
 - Experiencia transparente para o usuario
@@ -185,12 +189,14 @@ Se qualquer passo falha, todos os recursos alocados ate aquele ponto sao liberad
 ### Quem gera
 
 O daemon `audioaccessoryd` gera a notificacao. Ela aparece quando:
+
 1. AirPods Pro/Max detectam gesto de mute
 2. Nenhum app com audio I/O ativo registrou o handler do AVAudioApplication retornando YES
 
 ### Como suprimir
 
 A unica maneira:
+
 1. Registrar `AVAudioApplication.setInputMuteStateChangeHandler`
 2. Ter audio I/O ativo (AUHAL resolvido acima)
 3. Handler retorna `YES`
@@ -233,6 +239,7 @@ O window de 500ms e maior que os 200ms do media key porque os dois callbacks (AV
 **WWDC23 Session 10233**: "Enhance your app's audio experience with AirPods"
 
 Esta sessao cobre:
+
 - Como usar `AVAudioApplication.setInputMuteStateChangeHandler`
 - O requisito de audio session ativa
 - Best practices para integracao de mute com AirPods

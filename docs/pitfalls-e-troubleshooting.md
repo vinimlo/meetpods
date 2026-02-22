@@ -11,6 +11,7 @@ Registro de todos os problemas encontrados durante o desenvolvimento, suas causa
 **Causa:** CGEventTap adicionado a um run loop de background thread nao recebe eventos `NX_SYSDEFINED` originados de dispositivos Bluetooth no macOS moderno.
 
 **Solucao:**
+
 ```cpp
 // CORRETO: main run loop
 CFRunLoopAddSource(CFRunLoopGetMain(), eventSource, kCFRunLoopCommonModes);
@@ -30,6 +31,7 @@ CFRunLoopAddSource(CFRunLoopGetCurrent(), eventSource, kCFRunLoopCommonModes);
 **Solucao:** Criar um AUHAL audio unit que puxa dados do microfone (e descarta). Ver `setupAUHAL()` em `media_key_tap.cc`.
 
 **Evidencia:** Header `AVAudioApplication.h` da Apple:
+
 > "this notification will only be dispatched for state changes when there is an active record session"
 
 ---
@@ -41,7 +43,9 @@ CFRunLoopAddSource(CFRunLoopGetCurrent(), eventSource, kCFRunLoopCommonModes);
 **Causa:** macOS automaticamente desativa event taps que ficam "stuck" ou nao respondem rapido o suficiente.
 
 **Solucao (duas camadas):**
+
 1. No callback, tratar `kCGEventTapDisabledByTimeout`:
+
 ```cpp
 if (type == kCGEventTapDisabledByTimeout) {
     CGEventTapEnable(eventPort, true);
@@ -50,6 +54,7 @@ if (type == kCGEventTapDisabledByTimeout) {
 ```
 
 2. Health check timer a cada 5 segundos:
+
 ```cpp
 if (eventPort && !CGEventTapIsEnabled(eventPort)) {
     CGEventTapEnable(eventPort, true);
@@ -73,10 +78,12 @@ if (eventPort && !CGEventTapIsEnabled(eventPort)) {
 **Sintoma:** Ao pressionar o stem dos AirPods, o Meet muta e imediatamente desmuta (ou vice-versa).
 
 **Causa:** Multiplas fontes de eventos disparam para o mesmo gesto:
+
 - CGEventTap + NSEvent para media keys
 - AVAudioApplication + Darwin notification para AirPods mute
 
 **Solucao:** Deduplicacao baseada em timestamps atomicos:
+
 - 200ms window para CGEventTap + NSEvent
 - 500ms window bidirecional para AVAudioApplication + Darwin
 
@@ -106,14 +113,14 @@ if (eventPort && !CGEventTapIsEnabled(eventPort)) {
 
 O MeetPods usa tags em todos os logs para facilitar filtragem:
 
-| Tag | Componente |
-|-----|-----------|
-| `[MeetPods:native]` | Addon C++/ObjC++ |
-| `[MeetPods:media-key]` | Wrapper TypeScript do addon |
-| `[MeetPods:bridge]` | WebSocket server |
-| `[MeetPods:main]` | Orquestrador principal (index.ts) |
-| `[MeetPods:bg]` | Background service worker |
-| `[MeetPods:content]` | Content script no Meet |
+| Tag                    | Componente                        |
+| ---------------------- | --------------------------------- |
+| `[MeetPods:native]`    | Addon C++/ObjC++                  |
+| `[MeetPods:media-key]` | Wrapper TypeScript do addon       |
+| `[MeetPods:bridge]`    | WebSocket server                  |
+| `[MeetPods:main]`      | Orquestrador principal (index.ts) |
+| `[MeetPods:bg]`        | Background service worker         |
+| `[MeetPods:content]`   | Content script no Meet            |
 
 ### Logs esperados na inicializacao
 
@@ -143,6 +150,7 @@ O MeetPods usa tags em todos os logs para facilitar filtragem:
 ### Logs esperados ao usar AirPods stem (press-and-hold)
 
 **Cenario ideal (AVAudioApplication + dedup):**
+
 ```
 [MeetPods:native] AirPods mic mute event (AVAudioApplication) — inputShouldBeMuted=1
 [MeetPods:native] Darwin mute notification: skipping (handled 23ms ago)
@@ -151,6 +159,7 @@ O MeetPods usa tags em todos os logs para facilitar filtragem:
 ```
 
 **Cenario fallback (sem mic permission):**
+
 ```
 [MeetPods:native] Darwin notification: AirPods mute gesture detected
 [MeetPods:main] media-key event received: play_pause

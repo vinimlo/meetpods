@@ -19,11 +19,7 @@ const MUTE_BUTTON_SELECTORS = [
   '[data-tooltip*="microfone" i] button[data-is-muted]',
 ];
 
-const CALL_INDICATORS = [
-  '[data-call-ended]',
-  'button[data-is-muted]',
-  '[data-meeting-title]',
-];
+const CALL_INDICATORS = ['[data-call-ended]', 'button[data-is-muted]', '[data-meeting-title]'];
 
 function findMuteButton(): HTMLButtonElement | null {
   for (const selector of MUTE_BUTTON_SELECTORS) {
@@ -42,12 +38,14 @@ function checkCallStatus(): void {
     isInCall = true;
     isMuted = muteButton.getAttribute('data-is-muted') === 'true';
   } else {
-    isInCall = CALL_INDICATORS.some(sel => document.querySelector(sel) !== null);
+    isInCall = CALL_INDICATORS.some((sel) => document.querySelector(sel) !== null);
     isMuted = false;
   }
 
   if (isInCall !== prevActive || isMuted !== prevMuted) {
-    console.log(`${TAG} Status changed: active=${isInCall}, muted=${isMuted} (was: active=${prevActive}, muted=${prevMuted})`);
+    console.log(
+      `${TAG} Status changed: active=${isInCall}, muted=${isMuted} (was: active=${prevActive}, muted=${prevMuted})`,
+    );
   }
 }
 
@@ -59,7 +57,7 @@ function toggleMute(): Promise<{ success: boolean; muted?: boolean; error?: stri
   }
   console.log(`${TAG} toggleMute() — clicking mute button`);
   muteButton.click();
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     setTimeout(() => {
       checkCallStatus();
       console.log(`${TAG} toggleMute() — after click: muted=${isMuted}`);
@@ -79,11 +77,13 @@ function pushStatusChange(): void {
   checkCallStatus();
   if (isInCall !== prevActive || isMuted !== prevMuted) {
     console.log(`${TAG} Pushing status change to background: active=${isInCall}, muted=${isMuted}`);
-    chrome.runtime.sendMessage({
-      type: 'status_changed',
-      active: isInCall,
-      muted: isMuted
-    }).catch((err: Error) => console.log(`${TAG} status push failed (service worker restarting?):`, err.message));
+    chrome.runtime
+      .sendMessage({
+        type: 'status_changed',
+        active: isInCall,
+        muted: isMuted,
+      })
+      .catch((err: Error) => console.log(`${TAG} status push failed (service worker restarting?):`, err.message));
   }
 }
 
@@ -96,7 +96,7 @@ function startObserving(): void {
     childList: true,
     subtree: true,
     attributes: true,
-    attributeFilter: ['data-is-muted', 'aria-label']
+    attributeFilter: ['data-is-muted', 'aria-label'],
   });
 }
 

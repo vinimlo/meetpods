@@ -22,20 +22,36 @@ describe('background.ts', () => {
       tabs: {
         query: vi.fn((opts: any, cb: any) => cb([])),
         sendMessage: vi.fn().mockResolvedValue({ active: false, muted: false }),
-        onUpdated: { addListener: vi.fn((cb: any) => { tabUpdateListener = cb; }) },
-        onRemoved: { addListener: vi.fn((cb: any) => { tabRemovedListener = cb; }) },
-        onActivated: { addListener: vi.fn((cb: any) => { tabActivatedListener = cb; }) },
+        onUpdated: {
+          addListener: vi.fn((cb: any) => {
+            tabUpdateListener = cb;
+          }),
+        },
+        onRemoved: {
+          addListener: vi.fn((cb: any) => {
+            tabRemovedListener = cb;
+          }),
+        },
+        onActivated: {
+          addListener: vi.fn((cb: any) => {
+            tabActivatedListener = cb;
+          }),
+        },
       },
       runtime: {
         onMessage: {
-          addListener: vi.fn((handler: any) => { onMessageHandler = handler; }),
+          addListener: vi.fn((handler: any) => {
+            onMessageHandler = handler;
+          }),
         },
       },
       alarms: {
         create: vi.fn(),
         clear: vi.fn(),
         onAlarm: {
-          addListener: vi.fn((cb: any) => { alarmListener = cb; }),
+          addListener: vi.fn((cb: any) => {
+            alarmListener = cb;
+          }),
         },
       },
     };
@@ -95,7 +111,7 @@ describe('background.ts', () => {
       await load();
       expect(globalThis.chrome.tabs.query).toHaveBeenCalledWith(
         { url: 'https://meet.google.com/*' },
-        expect.any(Function)
+        expect.any(Function),
       );
     });
 
@@ -179,9 +195,7 @@ describe('background.ts', () => {
       onMessageHandler({ type: 'query_meet_status' }, {}, sendResponse);
 
       await new Promise((r) => setTimeout(r, 50));
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ active: false, muted: false, tabId: null })
-      );
+      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ active: false, muted: false, tabId: null }));
     });
 
     it('returns most recently focused tab', async () => {
@@ -215,9 +229,7 @@ describe('background.ts', () => {
       onMessageHandler({ type: 'query_meet_status' }, {}, sendResponse);
 
       await new Promise((r) => setTimeout(r, 50));
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ active: false, muted: false, tabId: null })
-      );
+      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ active: false, muted: false, tabId: null }));
     });
 
     it('returns tab response with tabId added', async () => {
@@ -229,9 +241,7 @@ describe('background.ts', () => {
       onMessageHandler({ type: 'query_meet_status' }, {}, sendResponse);
 
       await new Promise((r) => setTimeout(r, 50));
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ active: true, muted: false, tabId: 5 })
-      );
+      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ active: true, muted: false, tabId: 5 }));
     });
 
     it('removes tab on sendMessage error', async () => {
@@ -243,9 +253,7 @@ describe('background.ts', () => {
       onMessageHandler({ type: 'query_meet_status' }, {}, sendResponse);
 
       await new Promise((r) => setTimeout(r, 50));
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ active: false })
-      );
+      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ active: false }));
     });
   });
 
@@ -270,15 +278,9 @@ describe('background.ts', () => {
       simulateWSOpen();
 
       const sender = { tab: { id: 7 } };
-      onMessageHandler(
-        { type: 'status_changed', active: true, muted: false },
-        sender,
-        vi.fn()
-      );
+      onMessageHandler({ type: 'status_changed', active: true, muted: false }, sender, vi.fn());
 
-      expect(wsInstance.send).toHaveBeenCalledWith(
-        expect.stringContaining('"type":"meet_status"')
-      );
+      expect(wsInstance.send).toHaveBeenCalledWith(expect.stringContaining('"type":"meet_status"'));
       const sent = JSON.parse(wsInstance.send.mock.calls[0][0]);
       expect(sent.tabId).toBe(7);
     });
@@ -287,11 +289,7 @@ describe('background.ts', () => {
       await load();
 
       const sender = { tab: { id: 7 } };
-      onMessageHandler(
-        { type: 'status_changed', active: true, muted: false },
-        sender,
-        vi.fn()
-      );
+      onMessageHandler({ type: 'status_changed', active: true, muted: false }, sender, vi.fn());
 
       expect(wsInstance.send).not.toHaveBeenCalled();
     });
@@ -300,11 +298,7 @@ describe('background.ts', () => {
       await load();
       simulateWSOpen();
 
-      onMessageHandler(
-        { type: 'status_changed', active: true, muted: false },
-        {},
-        vi.fn()
-      );
+      onMessageHandler({ type: 'status_changed', active: true, muted: false }, {}, vi.fn());
 
       const sent = JSON.parse(wsInstance.send.mock.calls[0][0]);
       expect(sent.tabId).toBeNull();
@@ -320,7 +314,7 @@ describe('background.ts', () => {
       simulateWSClose();
       expect(globalThis.chrome.alarms.create).toHaveBeenCalledWith(
         'reconnect',
-        expect.objectContaining({ periodInMinutes: expect.any(Number) })
+        expect.objectContaining({ periodInMinutes: expect.any(Number) }),
       );
 
       // Trigger alarm to attempt reconnect
@@ -344,9 +338,7 @@ describe('background.ts', () => {
 
       await new Promise((r) => setTimeout(r, 50));
 
-      expect(wsInstance.send).toHaveBeenCalledWith(
-        expect.stringContaining('"type":"meet_status"')
-      );
+      expect(wsInstance.send).toHaveBeenCalledWith(expect.stringContaining('"type":"meet_status"'));
       const sent = JSON.parse(wsInstance.send.mock.calls[0][0]);
       expect(sent.requestId).toBe('req-1');
     });
@@ -362,9 +354,7 @@ describe('background.ts', () => {
 
       await new Promise((r) => setTimeout(r, 50));
 
-      expect(wsInstance.send).toHaveBeenCalledWith(
-        expect.stringContaining('"type":"mute_toggled"')
-      );
+      expect(wsInstance.send).toHaveBeenCalledWith(expect.stringContaining('"type":"mute_toggled"'));
       const sent = JSON.parse(wsInstance.send.mock.calls[0][0]);
       expect(sent.requestId).toBe('req-2');
     });
@@ -375,9 +365,7 @@ describe('background.ts', () => {
 
       simulateWSMessage({ type: 'ping' });
 
-      expect(wsInstance.send).toHaveBeenCalledWith(
-        JSON.stringify({ type: 'pong' })
-      );
+      expect(wsInstance.send).toHaveBeenCalledWith(JSON.stringify({ type: 'pong' }));
     });
 
     it('onclose sets ws to null and schedules reconnect', async () => {
@@ -414,10 +402,9 @@ describe('background.ts', () => {
     it('creates alarm on disconnect', async () => {
       await load();
       simulateWSClose();
-      expect(globalThis.chrome.alarms.create).toHaveBeenCalledWith(
-        'reconnect',
-        { periodInMinutes: expect.closeTo(0.166, 1) }
-      );
+      expect(globalThis.chrome.alarms.create).toHaveBeenCalledWith('reconnect', {
+        periodInMinutes: expect.closeTo(0.166, 1),
+      });
     });
   });
 

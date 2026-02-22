@@ -69,6 +69,7 @@ Registro das decisoes arquiteturais tomadas durante o desenvolvimento do MeetPod
 **Escolha:** O Electron faz poll a cada 10s para verificar o estado do Meet, e o content script usa MutationObserver para push de mudancas.
 
 **Motivo:** MutationObserver e a fonte primaria e mais responsiva. O poll de 10s e rede de seguranca contra:
+
 - MutationObserver perder alguma mutacao
 - Service worker do Chrome ser suspenso e acordar
 - Tab do Meet sendo recarregada

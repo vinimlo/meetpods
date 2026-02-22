@@ -121,9 +121,7 @@ describe('popup.ts', () => {
     });
 
     it('handles undefined active in response', async () => {
-      globalThis.chrome.runtime.sendMessage
-        .mockResolvedValueOnce({ connected: true })
-        .mockResolvedValueOnce({});
+      globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({ connected: true }).mockResolvedValueOnce({});
 
       await loadPopup();
 

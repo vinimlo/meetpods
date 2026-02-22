@@ -5,6 +5,7 @@
 ## 1. Build & Run
 
 **Quick start (recommended):**
+
 ```bash
 make setup             # First-time: install deps + full build
 make dev               # Launch app (fast — skips native rebuild)
@@ -14,6 +15,7 @@ make help              # Show all targets
 ```
 
 **npm equivalents:**
+
 ```bash
 npm run build          # Full build (native + TypeScript)
 npm run build:native   # Rebuild C++/ObjC++ native addon only
@@ -63,17 +65,17 @@ Native (C++/ObjC++ NAPI) ↔ Electron (TypeScript) ↔ Chrome Extension (JS/WebS
 
 ## 2b. Key Files
 
-| File | Purpose |
-|------|---------|
-| `src/main/index.ts` | Electron entry point, app lifecycle |
-| `src/main/media-key.ts` | Native addon wrapper + event handling |
-| `src/main/native-msg.ts` | WebSocket server (port 18432), extension bridge |
-| `src/main/tray.ts` | Menu bar icon + context menu |
-| `src/extension/background.ts` | Service worker, tab tracking |
-| `src/extension/content.ts` | Meet DOM interaction, mute toggle |
-| `src/native/media_key_tap.cc` | C++/ObjC++ — CGEventTap + Darwin + AUHAL |
-| `electron-builder.yml` | Production packaging config |
-| `Makefile` | Developer workflow targets |
+| File                          | Purpose                                         |
+| ----------------------------- | ----------------------------------------------- |
+| `src/main/index.ts`           | Electron entry point, app lifecycle             |
+| `src/main/media-key.ts`       | Native addon wrapper + event handling           |
+| `src/main/native-msg.ts`      | WebSocket server (port 18432), extension bridge |
+| `src/main/tray.ts`            | Menu bar icon + context menu                    |
+| `src/extension/background.ts` | Service worker, tab tracking                    |
+| `src/extension/content.ts`    | Meet DOM interaction, mute toggle               |
+| `src/native/media_key_tap.cc` | C++/ObjC++ — CGEventTap + Darwin + AUHAL        |
+| `electron-builder.yml`        | Production packaging config                     |
+| `Makefile`                    | Developer workflow targets                      |
 
 ## 3. AirPods Event Architecture on macOS
 

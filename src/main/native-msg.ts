@@ -31,7 +31,7 @@ export class ExtensionBridge extends EventEmitter {
 
     this.wss = new WebSocketServer({
       port: this.port,
-      host: '127.0.0.1'
+      host: '127.0.0.1',
     });
 
     console.log(`${TAG} WebSocket server listening on 127.0.0.1:${this.port}`);
@@ -70,7 +70,7 @@ export class ExtensionBridge extends EventEmitter {
     }
   }
 
-  private handleMessage(message: any, sender?: any): void {
+  private handleMessage(message: any, _sender?: any): void {
     switch (message.type) {
       case 'meet_status':
         this.emit('meet-status', message as MeetStatus);

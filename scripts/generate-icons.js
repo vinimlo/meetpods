@@ -28,11 +28,17 @@ async function generate() {
     const svg = fs.readFileSync(svgPath);
 
     // @1x (16x16)
-    await sharp(svg).resize(16, 16).png().toFile(path.join(assetsDir, `${name}.png`));
+    await sharp(svg)
+      .resize(16, 16)
+      .png()
+      .toFile(path.join(assetsDir, `${name}.png`));
     console.log(`  Created ${name}.png (16x16)`);
 
     // @2x (32x32) for Retina
-    await sharp(svg).resize(32, 32).png().toFile(path.join(assetsDir, `${name}@2x.png`));
+    await sharp(svg)
+      .resize(32, 32)
+      .png()
+      .toFile(path.join(assetsDir, `${name}@2x.png`));
     console.log(`  Created ${name}@2x.png (32x32)`);
   }
 

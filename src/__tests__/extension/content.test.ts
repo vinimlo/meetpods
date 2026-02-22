@@ -141,9 +141,7 @@ describe('content.ts', () => {
       await new Promise((r) => setTimeout(r, 150));
 
       expect(btn.click).toHaveBeenCalled();
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: true })
-      );
+      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     });
 
     it('returns error when no mute button found', async () => {
@@ -156,7 +154,7 @@ describe('content.ts', () => {
       await new Promise((r) => setTimeout(r, 50));
 
       expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: false, error: 'Mute button not found' })
+        expect.objectContaining({ success: false, error: 'Mute button not found' }),
       );
     });
   });
@@ -210,7 +208,7 @@ describe('content.ts', () => {
           type: 'status_changed',
           active: true,
           muted: true,
-        })
+        }),
       );
     });
 
@@ -247,7 +245,7 @@ describe('content.ts', () => {
       await loadContent();
       expect(mockObserverInstance.observe).toHaveBeenCalledWith(
         globalThis.document.body,
-        expect.objectContaining({ childList: true, subtree: true })
+        expect.objectContaining({ childList: true, subtree: true }),
       );
     });
   });
