@@ -1,0 +1,32 @@
+appId: com.meetpods.app
+productName: MeetPods
+mac:
+  category: public.app-category.productivity
+  target: dmg
+  icon: assets/icon.png
+  identity: null
+  extendInfo:
+    NSAccessibilityUsageDescription: "MeetPods needs Accessibility access to intercept media key events from AirPods."
+    NSMicrophoneUsageDescription: "MeetPods needs microphone access to detect AirPods mute gestures and suppress the 'Cannot Control Mic' notification."
+dmg:
+  title: MeetPods
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+files:
+  - "dist/main/**/*"
+  - "node_modules/**/*"
+  - "package.json"
+extraResources:
+  - from: src/native/build/Release/media_key_tap.node
+    to: native/media_key_tap.node
+  - from: dist/extension/
+    to: extension/
+  - from: assets/
+    to: assets/
+    filter:
+      - "*.png"
