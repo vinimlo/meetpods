@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <!-- MUTED state: Microphone with diagonal strike-through -->
+  <path d="M8 1.5C6.62 1.5 5.5 2.62 5.5 4v3.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V4c0-1.38-1.12-2.5-2.5-2.5z" fill="#000" stroke="#000" stroke-width="0.5" opacity="0.5"/>
+  <path d="M4 7v.5C4 9.71 5.79 11.5 8 11.5s4-1.79 4-4V7" fill="none" stroke="#000" stroke-width="1.2" stroke-linecap="round" opacity="0.5"/>
+  <line x1="8" y1="11.5" x2="8" y2="14" stroke="#000" stroke-width="1.2" stroke-linecap="round" opacity="0.5"/>
+  <line x1="6" y1="14" x2="10" y2="14" stroke="#000" stroke-width="1.2" stroke-linecap="round" opacity="0.5"/>
+  <!-- Diagonal strike-through — the universal mute indicator -->
+  <line x1="2.5" y1="2.5" x2="13.5" y2="13.5" stroke="#000" stroke-width="1.8" stroke-linecap="round"/>
+</svg>
