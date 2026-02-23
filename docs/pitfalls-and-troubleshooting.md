@@ -113,14 +113,14 @@ if (eventPort && !CGEventTapIsEnabled(eventPort)) {
 
 MeetPods uses tags in all logs for easy filtering:
 
-| Tag                    | Component                          |
-| ---------------------- | ---------------------------------- |
-| `[MeetPods:native]`    | C++/ObjC++ addon                   |
-| `[MeetPods:media-key]` | TypeScript addon wrapper           |
-| `[MeetPods:bridge]`    | WebSocket server                   |
-| `[MeetPods:main]`      | Main orchestrator (index.ts)       |
-| `[MeetPods:bg]`        | Background service worker          |
-| `[MeetPods:content]`   | Content script in Meet             |
+| Tag                    | Component                    |
+| ---------------------- | ---------------------------- |
+| `[MeetPods:native]`    | C++/ObjC++ addon             |
+| `[MeetPods:media-key]` | TypeScript addon wrapper     |
+| `[MeetPods:bridge]`    | WebSocket server             |
+| `[MeetPods:main]`      | Main orchestrator (index.ts) |
+| `[MeetPods:bg]`        | Background service worker    |
+| `[MeetPods:content]`   | Content script in Meet       |
 
 ### Expected logs at startup
 

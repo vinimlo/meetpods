@@ -77,30 +77,30 @@ AirPods stem press
 
 Three components work together:
 
-| Component | What it does |
-| --- | --- |
-| **Menu bar app** (Electron) | Intercepts media keys, orchestrates mute toggle, shows status in the menu bar |
-| **Native addon** (C++/ObjC++) | Uses macOS `CGEventTap` to capture media key events at the system level |
-| **Chrome extension** (Manifest V3) | Detects active Meet calls, clicks the mute button in the DOM |
+| Component                          | What it does                                                                  |
+| ---------------------------------- | ----------------------------------------------------------------------------- |
+| **Menu bar app** (Electron)        | Intercepts media keys, orchestrates mute toggle, shows status in the menu bar |
+| **Native addon** (C++/ObjC++)      | Uses macOS `CGEventTap` to capture media key events at the system level       |
+| **Chrome extension** (Manifest V3) | Detects active Meet calls, clicks the mute button in the DOM                  |
 
 The app also listens for **AirPods stem-hold mute gestures** via `AVAudioApplication` (macOS 14+), suppressing the "Cannot Control Mic" system notification.
 
 ### Menu bar states
 
-| Icon | Meaning |
-| --- | --- |
-| Gray microphone | No active call — media keys pass through |
-| Microphone + signal arcs | In call, mic on |
-| Microphone with slash | In call, muted |
+| Icon                     | Meaning                                  |
+| ------------------------ | ---------------------------------------- |
+| Gray microphone          | No active call — media keys pass through |
+| Microphone + signal arcs | In call, mic on                          |
+| Microphone with slash    | In call, muted                           |
 
 ## Permissions
 
-| Permission | Why |
-| --- | --- |
-| **Accessibility** | Intercept media key events via `CGEventTap` — same as Karabiner or BetterTouchTool |
-| **Microphone** | Detect AirPods mute gestures and suppress the "Cannot Control Mic" notification (macOS 14+) |
-| **Chrome: `tabs`** | Detect which tabs have Google Meet open |
-| **Chrome: `meet.google.com`** | Inject content script to control the mute button |
+| Permission                    | Why                                                                                         |
+| ----------------------------- | ------------------------------------------------------------------------------------------- |
+| **Accessibility**             | Intercept media key events via `CGEventTap` — same as Karabiner or BetterTouchTool          |
+| **Microphone**                | Detect AirPods mute gestures and suppress the "Cannot Control Mic" notification (macOS 14+) |
+| **Chrome: `tabs`**            | Detect which tabs have Google Meet open                                                     |
+| **Chrome: `meet.google.com`** | Inject content script to control the mute button                                            |
 
 ## Development
 

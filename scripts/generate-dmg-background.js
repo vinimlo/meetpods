@@ -26,17 +26,11 @@ async function generate() {
   const svg = fs.readFileSync(svgPath);
 
   // Standard DMG background: 480x300 @2x for Retina = 960x600
-  await sharp(svg)
-    .resize(960, 600)
-    .png()
-    .toFile(path.join(assetsDir, 'dmg-background@2x.png'));
+  await sharp(svg).resize(960, 600).png().toFile(path.join(assetsDir, 'dmg-background@2x.png'));
   console.log('Created dmg-background@2x.png (960x600, Retina)');
 
   // @1x fallback
-  await sharp(svg)
-    .resize(480, 300)
-    .png()
-    .toFile(path.join(assetsDir, 'dmg-background.png'));
+  await sharp(svg).resize(480, 300).png().toFile(path.join(assetsDir, 'dmg-background.png'));
   console.log('Created dmg-background.png (480x300)');
 
   console.log('\nDone! DMG background images generated.');

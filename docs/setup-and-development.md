@@ -2,13 +2,13 @@
 
 ## Prerequisites
 
-| Requirement               | Minimum version  | Note                                               |
-| ------------------------- | ---------------- | -------------------------------------------------- |
-| macOS                     | 12 (Monterey)    | CGEventTap requires modern macOS                   |
-| macOS (for AirPods mute)  | 14 (Sonoma)      | AVAudioApplication available from macOS 14 onward  |
-| Node.js                   | 22+              | Required for N-API and node-gyp                    |
-| Xcode CLT                 | Any recent       | `xcode-select --install`                           |
-| Google Chrome             | Any recent       | For the extension                                  |
+| Requirement              | Minimum version | Note                                              |
+| ------------------------ | --------------- | ------------------------------------------------- |
+| macOS                    | 12 (Monterey)   | CGEventTap requires modern macOS                  |
+| macOS (for AirPods mute) | 14 (Sonoma)     | AVAudioApplication available from macOS 14 onward |
+| Node.js                  | 22+             | Required for N-API and node-gyp                   |
+| Xcode CLT                | Any recent      | `xcode-select --install`                          |
+| Google Chrome            | Any recent      | For the extension                                 |
 
 ## Installation
 

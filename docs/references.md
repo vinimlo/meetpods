@@ -56,13 +56,13 @@
 
 ## Chrome Extension APIs Used
 
-| API                        | Usage                                            |
-| -------------------------- | ------------------------------------------------ |
-| `chrome.tabs.query`        | Find Google Meet tabs                            |
-| `chrome.tabs.onUpdated`    | Detect opening/closing of Meet tabs              |
-| `chrome.tabs.sendMessage`  | Communicate with content script                  |
-| `chrome.runtime.onMessage` | Receive messages from content script and popup   |
-| `MutationObserver`         | Detect DOM changes in Meet (mute toggle)         |
+| API                        | Usage                                          |
+| -------------------------- | ---------------------------------------------- |
+| `chrome.tabs.query`        | Find Google Meet tabs                          |
+| `chrome.tabs.onUpdated`    | Detect opening/closing of Meet tabs            |
+| `chrome.tabs.sendMessage`  | Communicate with content script                |
+| `chrome.runtime.onMessage` | Receive messages from content script and popup |
+| `MutationObserver`         | Detect DOM changes in Meet (mute toggle)       |
 
 ## Key Concepts
 

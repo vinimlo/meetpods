@@ -68,9 +68,7 @@ async function main() {
 
   // Verify it's actually animated
   const meta = await sharp(OUTPUT).metadata();
-  console.log(
-    `✓ ${OUTPUT} (${(stats.size / 1024).toFixed(0)} KB, ${meta.pages} frames, ${width}×${height})`
-  );
+  console.log(`✓ ${OUTPUT} (${(stats.size / 1024).toFixed(0)} KB, ${meta.pages} frames, ${width}×${height})`);
 }
 
 main().catch((err) => {

@@ -13,32 +13,35 @@
       }
 
       :root {
-        --bg-deep: #0D0B12;
-        --bg-surface: #14121C;
-        --bg-card: #1C1A26;
-        --bg-card-hover: #24222F;
-        --border: #2C2938;
-        --border-subtle: #221F2E;
-        --text-primary: #F0ECE5;
-        --text-secondary: #9590A0;
-        --text-dim: #5D586A;
+        --bg-deep: #0d0b12;
+        --bg-surface: #14121c;
+        --bg-card: #1c1a26;
+        --bg-card-hover: #24222f;
+        --border: #2c2938;
+        --border-subtle: #221f2e;
+        --text-primary: #f0ece5;
+        --text-secondary: #9590a0;
+        --text-dim: #5d586a;
 
-        --brand-start: #FF6B35;
-        --brand-mid: #F44068;
-        --brand-end: #E91E63;
+        --brand-start: #ff6b35;
+        --brand-mid: #f44068;
+        --brand-end: #e91e63;
 
-        --accent-green: #34D399;
+        --accent-green: #34d399;
         --accent-green-glow: rgba(52, 211, 153, 0.15);
-        --accent-red: #FB7185;
+        --accent-red: #fb7185;
         --accent-red-glow: rgba(251, 113, 133, 0.15);
-        --accent-amber: #FBBF24;
+        --accent-amber: #fbbf24;
         --accent-amber-glow: rgba(251, 191, 36, 0.12);
       }
 
       body {
         width: 300px;
         min-height: 180px;
-        font-family: 'Sora', -apple-system, sans-serif;
+        font-family:
+          'Sora',
+          -apple-system,
+          sans-serif;
         background: var(--bg-deep);
         color: var(--text-primary);
         overflow: hidden;
@@ -65,7 +68,7 @@
         width: 30px;
         height: 30px;
         border-radius: 8px;
-        background: linear-gradient(135deg, #15121F, #0F0D16);
+        background: linear-gradient(135deg, #15121f, #0f0d16);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -79,7 +82,7 @@
         content: '';
         position: absolute;
         inset: 0;
-        background: radial-gradient(circle at 50% 40%, rgba(244,64,104,0.12), transparent 70%);
+        background: radial-gradient(circle at 50% 40%, rgba(244, 64, 104, 0.12), transparent 70%);
       }
 
       .header-icon svg {
@@ -127,7 +130,9 @@
         background: var(--bg-card);
         border: 1px solid var(--border-subtle);
         border-radius: 8px;
-        transition: background 0.15s ease, border-color 0.15s ease;
+        transition:
+          background 0.15s ease,
+          border-color 0.15s ease;
       }
 
       .status-row:hover {
@@ -154,7 +159,9 @@
 
       .status-dot.green {
         background: var(--accent-green);
-        box-shadow: 0 0 6px var(--accent-green), 0 0 12px var(--accent-green-glow);
+        box-shadow:
+          0 0 6px var(--accent-green),
+          0 0 12px var(--accent-green-glow);
         animation: pulse-glow 2.5s ease-in-out infinite;
       }
 
@@ -247,7 +254,8 @@
 
       /* ── Animations ── */
       @keyframes pulse-glow {
-        0%, 100% {
+        0%,
+        100% {
           opacity: 1;
         }
         50% {
@@ -265,15 +273,29 @@
           <!-- Pod mark: capsule + signal arc -->
           <defs>
             <linearGradient id="hg" x1="6.5" y1="2" x2="6.5" y2="14" gradientUnits="userSpaceOnUse">
-              <stop stop-color="#FF6B35"/>
-              <stop offset="1" stop-color="#E91E63"/>
+              <stop stop-color="#FF6B35" />
+              <stop offset="1" stop-color="#E91E63" />
             </linearGradient>
           </defs>
-          <rect x="4.8" y="2" width="5" height="8.5" rx="2.5" fill="url(#hg)"/>
-          <rect x="6.6" y="9.8" width="1.2" height="3.2" rx="0.6" fill="url(#hg)" opacity="0.85"/>
-          <ellipse cx="7.2" cy="13.4" rx="1.2" ry="0.5" fill="url(#hg)" opacity="0.6"/>
-          <path d="M11 4.5Q13 6.5 11 8.5" stroke="url(#hg)" stroke-width="1" stroke-linecap="round" fill="none" opacity="0.7"/>
-          <path d="M12.2 3.2Q14.8 6.2 12.2 9.5" stroke="url(#hg)" stroke-width="0.7" stroke-linecap="round" fill="none" opacity="0.35"/>
+          <rect x="4.8" y="2" width="5" height="8.5" rx="2.5" fill="url(#hg)" />
+          <rect x="6.6" y="9.8" width="1.2" height="3.2" rx="0.6" fill="url(#hg)" opacity="0.85" />
+          <ellipse cx="7.2" cy="13.4" rx="1.2" ry="0.5" fill="url(#hg)" opacity="0.6" />
+          <path
+            d="M11 4.5Q13 6.5 11 8.5"
+            stroke="url(#hg)"
+            stroke-width="1"
+            stroke-linecap="round"
+            fill="none"
+            opacity="0.7"
+          />
+          <path
+            d="M12.2 3.2Q14.8 6.2 12.2 9.5"
+            stroke="url(#hg)"
+            stroke-width="0.7"
+            stroke-linecap="round"
+            fill="none"
+            opacity="0.35"
+          />
         </svg>
       </div>
       <div class="header-meta">
