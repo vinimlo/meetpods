@@ -18,7 +18,9 @@ jobs:
           cache: npm
 
       - run: npm ci
-      - run: npm run dist
+      - run: npm run build
+      - run: npm run rebuild:electron
+      - run: npx electron-builder --publish never
 
       - name: Zip Chrome extension
         run: cd dist/extension && zip -r ../MeetPods-Extension-${{ github.ref_name }}.zip .
