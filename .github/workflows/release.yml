@@ -20,6 +20,11 @@ jobs:
       - run: npm ci
       - run: npm run dist
 
+      - name: Zip Chrome extension
+        run: cd dist/extension && zip -r ../MeetPods-Extension-${{ github.ref_name }}.zip .
+
       - uses: softprops/action-gh-release@v2
         with:
-          files: dist/MeetPods-*.dmg
+          files: |
+            dist/MeetPods-*.dmg
+            dist/MeetPods-Extension-*.zip
