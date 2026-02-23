@@ -1,7 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-  <!-- IDLE state: Microphone outline, subtle, dormant feel -->
-  <path d="M8 1.5C6.62 1.5 5.5 2.62 5.5 4v3.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V4c0-1.38-1.12-2.5-2.5-2.5z" fill="none" stroke="#000" stroke-width="1.2" opacity="0.7"/>
-  <path d="M4 7v.5C4 9.71 5.79 11.5 8 11.5s4-1.79 4-4V7" fill="none" stroke="#000" stroke-width="1.2" stroke-linecap="round" opacity="0.7"/>
-  <line x1="8" y1="11.5" x2="8" y2="14" stroke="#000" stroke-width="1.2" stroke-linecap="round" opacity="0.7"/>
-  <line x1="6" y1="14" x2="10" y2="14" stroke="#000" stroke-width="1.2" stroke-linecap="round" opacity="0.7"/>
+  <!-- IDLE state: Pod-styled microphone outline, subtle/dormant -->
+  <!-- Wider capsule head for pod feel, narrower stem -->
+  <rect x="4.5" y="1" width="7" height="8" rx="3.5" ry="3.5"
+        fill="none" stroke="#000" stroke-width="1.2" opacity="0.65"/>
+  <path d="M3.5 7.2v.3C3.5 9.98 5.52 12 8 12s4.5-2.02 4.5-4.5v-.3"
+        fill="none" stroke="#000" stroke-width="1.2" stroke-linecap="round" opacity="0.65"/>
+  <line x1="8" y1="12" x2="8" y2="14.2"
+        stroke="#000" stroke-width="1.2" stroke-linecap="round" opacity="0.65"/>
+  <line x1="5.8" y1="14.2" x2="10.2" y2="14.2"
+        stroke="#000" stroke-width="1.2" stroke-linecap="round" opacity="0.65"/>
 </svg>

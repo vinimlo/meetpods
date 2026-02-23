@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="300" viewBox="0 0 480 300">
+  <defs>
+    <!-- Warm cream/off-white background -->
+    <linearGradient id="bgG" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FBF8F4"/>
+      <stop offset="100%" stop-color="#F3EDE5"/>
+    </linearGradient>
+
+    <!-- Brand gradient -->
+    <linearGradient id="brandG" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FF6B35"/>
+      <stop offset="50%" stop-color="#F44068"/>
+      <stop offset="100%" stop-color="#E91E63"/>
+    </linearGradient>
+
+    <!-- Vertical brand gradient for the pod watermark -->
+    <linearGradient id="wmGrad" x1="240" y1="40" x2="240" y2="260" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FF6B35"/>
+      <stop offset="40%" stop-color="#F44068"/>
+      <stop offset="100%" stop-color="#E91E63"/>
+    </linearGradient>
+
+    <!-- Soft radial warmth behind the center -->
+    <radialGradient id="warmGlow" cx="50%" cy="52%" r="40%">
+      <stop offset="0%" stop-color="rgba(255, 107, 53, 0.06)"/>
+      <stop offset="100%" stop-color="rgba(255, 107, 53, 0)"/>
+    </radialGradient>
+
+    <!-- Noise texture for paper feel -->
+    <filter id="noise">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.03"/>
+      </feComponentTransfer>
+      <feComposite in2="SourceGraphic" operator="in"/>
+    </filter>
+
+    <!-- Arrow glow -->
+    <filter id="arrowGlow" x="-20%" y="-100%" width="140%" height="300%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Base background -->
+  <rect width="480" height="300" fill="url(#bgG)"/>
+
+  <!-- Noise texture overlay for paper feel -->
+  <rect width="480" height="300" fill="white" filter="url(#noise)" opacity="0.6"/>
+
+  <!-- Warm glow -->
+  <rect width="480" height="300" fill="url(#warmGlow)"/>
+
+  <!-- Brand gradient stripe at top — thicker, bolder -->
+  <rect x="0" y="0" width="480" height="3" fill="url(#brandG)"/>
+
+  <!-- Very subtle pod watermark — large, centered, ghostly -->
+  <g transform="translate(240, 130)" opacity="0.035">
+    <!-- Pod body -->
+    <rect x="-30" y="-52" width="60" height="96" rx="30" ry="30" fill="url(#wmGrad)"/>
+    <!-- Stem -->
+    <rect x="-6" y="38" width="12" height="50" rx="6" ry="6" fill="url(#wmGrad)"/>
+    <!-- Stem tip -->
+    <ellipse cx="0" cy="92" rx="8" ry="4" fill="url(#wmGrad)"/>
+    <!-- Signal arcs -->
+    <path d="M 36,-28 Q 60,0 36,28" stroke="url(#wmGrad)" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M 50,-44 Q 80,0 50,44" stroke="url(#wmGrad)" stroke-width="4" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <!-- ── Arrow: clear directional cue from app → Applications ── -->
+  <!-- The icons sit at y=155. App at x=140, Applications at x=340. -->
+  <!-- Arrow spans the gap between them -->
+  <g filter="url(#arrowGlow)">
+    <!-- Dashed line -->
+    <line x1="195" y1="155" x2="290" y2="155"
+          stroke="url(#brandG)" stroke-width="2"
+          stroke-dasharray="8 5" stroke-linecap="round"
+          opacity="0.55"/>
+    <!-- Arrow head — chevron style -->
+    <path d="M 285,146 L 300,155 L 285,164"
+          stroke="url(#brandG)" stroke-width="2.5"
+          fill="none" stroke-linecap="round" stroke-linejoin="round"
+          opacity="0.6"/>
+  </g>
+
+  <!-- Instruction text — readable but refined -->
+  <text x="240" y="245" text-anchor="middle"
+        font-family="'SF Pro Display', 'Helvetica Neue', -apple-system, system-ui, sans-serif"
+        font-size="13" font-weight="400" fill="#8C7E6A"
+        letter-spacing="0.06em" opacity="0.7">
+    Drag to Applications
+  </text>
+
+  <!-- Thin bottom accent line -->
+  <rect x="90" y="270" width="300" height="1" fill="url(#brandG)" opacity="0.12" rx="0.5"/>
+</svg>

@@ -21,6 +21,13 @@ install: dist  ## Build .dmg and install MeetPods as a macOS app
 # ── Development ──────────────────────────────────
 
 setup:  ## First-time dev setup (install deps + full build)
+	@if ! command -v mise >/dev/null 2>&1; then \
+		echo ""; \
+		echo "  \033[33mTip:\033[0m Install \033[36mmise\033[0m to auto-manage Node + Python versions:"; \
+		echo "       \033[90mhttps://mise.jdx.dev\033[0m"; \
+		echo "       Then run: \033[36mmise install\033[0m"; \
+		echo ""; \
+	fi
 	npm install
 	@$(MAKE) build
 	@echo ""
@@ -62,9 +69,12 @@ build-ext:
 build-native:
 	npx node-gyp rebuild --directory=src/native
 
-icons:  ## Regenerate all icons (tray + app)
+icons:  ## Regenerate all icons (tray + app + extension + DMG + demo GIF)
 	node scripts/generate-icons.js
 	node scripts/generate-app-icon.js
+	node scripts/generate-extension-icons.js
+	node scripts/generate-dmg-background.js
+	node scripts/generate-demo-gif.js
 
 dist: build  ## Build .dmg installer (no auto-open)
 	node scripts/rebuild-native.js

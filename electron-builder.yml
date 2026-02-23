@@ -10,11 +10,15 @@ mac:
     NSMicrophoneUsageDescription: "MeetPods needs microphone access to detect AirPods mute gestures and suppress the 'Cannot Control Mic' notification."
 dmg:
   title: MeetPods
+  background: assets/dmg-background@2x.png
+  window:
+    width: 480
+    height: 300
   contents:
-    - x: 130
-      y: 220
-    - x: 410
-      y: 220
+    - x: 140
+      y: 155
+    - x: 340
+      y: 155
       type: link
       path: /Applications
 files:

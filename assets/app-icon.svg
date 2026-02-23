@@ -1,132 +1,109 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
-    <!-- Main background gradient: deep teal to rich emerald -->
+    <!-- Background: deep space with warm purple undertone -->
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0D9488"/>
-      <stop offset="50%" stop-color="#0F766E"/>
-      <stop offset="100%" stop-color="#115E59"/>
+      <stop offset="0%" stop-color="#15121F"/>
+      <stop offset="50%" stop-color="#0F0D16"/>
+      <stop offset="100%" stop-color="#0A090F"/>
     </linearGradient>
 
-    <!-- Glossy highlight -->
-    <linearGradient id="glossGrad" x1="50%" y1="0%" x2="50%" y2="60%">
-      <stop offset="0%" stop-color="rgba(255,255,255,0.25)"/>
+    <!-- Brand gradient (userSpaceOnUse for consistent fill+stroke) -->
+    <linearGradient id="markGrad" x1="440" y1="220" x2="440" y2="680" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FF6B35"/>
+      <stop offset="40%" stop-color="#F44068"/>
+      <stop offset="100%" stop-color="#E91E63"/>
+    </linearGradient>
+
+    <!-- Capsule glass highlight -->
+    <linearGradient id="capsuleGloss" x1="50%" y1="0%" x2="50%" y2="50%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.22)"/>
       <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
     </linearGradient>
 
-    <!-- Inner shadow for depth -->
-    <radialGradient id="innerShadow" cx="50%" cy="100%" r="80%">
-      <stop offset="0%" stop-color="rgba(0,0,0,0.3)"/>
-      <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+    <!-- Radial glow behind mark -->
+    <radialGradient id="markGlow" cx="48%" cy="44%" r="28%">
+      <stop offset="0%" stop-color="rgba(244, 64, 104, 0.22)"/>
+      <stop offset="60%" stop-color="rgba(244, 64, 104, 0.06)"/>
+      <stop offset="100%" stop-color="rgba(244, 64, 104, 0)"/>
     </radialGradient>
 
-    <!-- Glow behind the icon element -->
-    <radialGradient id="iconGlow" cx="50%" cy="48%" r="35%">
-      <stop offset="0%" stop-color="rgba(94,234,212,0.4)"/>
-      <stop offset="100%" stop-color="rgba(94,234,212,0)"/>
-    </radialGradient>
+    <!-- Top gloss for squircle -->
+    <linearGradient id="topGloss" x1="50%" y1="0%" x2="50%" y2="55%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.07)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+    </linearGradient>
 
-    <!-- Drop shadow for the squircle -->
-    <filter id="dropShadow" x="-10%" y="-10%" width="120%" height="130%">
-      <feDropShadow dx="0" dy="8" stdDeviation="20" flood-color="rgba(0,0,0,0.35)"/>
+    <!-- Drop shadow for squircle -->
+    <filter id="shadow" x="-10%" y="-5%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="10" stdDeviation="22" flood-color="rgba(0,0,0,0.45)"/>
     </filter>
 
-    <!-- Subtle noise texture -->
+    <!-- Noise texture -->
     <filter id="noise">
       <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/>
       <feColorMatrix type="saturate" values="0"/>
-      <feBlend in="SourceGraphic" mode="overlay" result="noisy"/>
       <feComponentTransfer>
-        <feFuncA type="linear" slope="0.08"/>
+        <feFuncA type="linear" slope="0.035"/>
       </feComponentTransfer>
       <feComposite in2="SourceGraphic" operator="in"/>
     </filter>
   </defs>
 
-  <!-- macOS-style rounded square (squircle approximation) -->
+  <!-- macOS squircle background -->
   <rect x="40" y="40" width="944" height="944" rx="212" ry="212"
-        fill="url(#bgGrad)" filter="url(#dropShadow)"/>
+        fill="url(#bgGrad)" filter="url(#shadow)"/>
 
   <!-- Noise texture overlay -->
   <rect x="40" y="40" width="944" height="944" rx="212" ry="212"
         fill="white" filter="url(#noise)" opacity="0.5"/>
 
-  <!-- Inner bottom shadow for depth -->
+  <!-- Glow behind mark -->
   <rect x="40" y="40" width="944" height="944" rx="212" ry="212"
-        fill="url(#innerShadow)" opacity="0.4"/>
+        fill="url(#markGlow)"/>
 
-  <!-- Glossy top highlight -->
-  <rect x="40" y="40" width="944" height="472" rx="212" ry="212"
-        fill="url(#glossGrad)" opacity="0.6"/>
+  <!-- Top gloss highlight -->
+  <rect x="40" y="40" width="944" height="480" rx="212" ry="212"
+        fill="url(#topGloss)"/>
 
-  <!-- Glow behind central icon -->
-  <rect x="40" y="40" width="944" height="944" rx="212" ry="212"
-        fill="url(#iconGlow)"/>
+  <!-- ═══ THE MARK: Pod + Signal ═══ -->
+  <g transform="translate(440, 400)">
 
-  <!-- Central icon group: Stylized AirPod stem + mic wave -->
-  <g transform="translate(512, 480)" fill="none">
+    <!-- Capsule body (the pod) -->
+    <rect x="-88" y="-155" width="176" height="286" rx="88" ry="88"
+          fill="url(#markGrad)"/>
 
-    <!-- Left AirPod (stylized) -->
-    <g transform="translate(-120, -60)">
-      <!-- Ear piece (rounded top) -->
-      <ellipse cx="0" cy="-60" rx="52" ry="62" fill="white" opacity="0.95"/>
-      <!-- Stem -->
-      <rect x="-14" y="-20" width="28" height="130" rx="14" fill="white" opacity="0.95"/>
-      <!-- Stem tip -->
-      <ellipse cx="0" cy="110" rx="16" ry="10" fill="white" opacity="0.8"/>
-      <!-- Inner ear shadow -->
-      <ellipse cx="0" cy="-65" rx="26" ry="30" fill="rgba(13,148,136,0.3)"/>
-      <!-- Speaker grille dots -->
-      <circle cx="-8" cy="-72" r="3.5" fill="rgba(13,148,136,0.5)"/>
-      <circle cx="8" cy="-72" r="3.5" fill="rgba(13,148,136,0.5)"/>
-      <circle cx="0" cy="-60" r="3.5" fill="rgba(13,148,136,0.5)"/>
-    </g>
+    <!-- Glass reflection on capsule -->
+    <ellipse cx="-20" cy="-100" rx="50" ry="70"
+             fill="url(#capsuleGloss)" opacity="0.6"/>
 
-    <!-- Right AirPod (stylized) -->
-    <g transform="translate(120, -60)">
-      <!-- Ear piece (rounded top) -->
-      <ellipse cx="0" cy="-60" rx="52" ry="62" fill="white" opacity="0.95"/>
-      <!-- Stem -->
-      <rect x="-14" y="-20" width="28" height="130" rx="14" fill="white" opacity="0.95"/>
-      <!-- Stem tip -->
-      <ellipse cx="0" cy="110" rx="16" ry="10" fill="white" opacity="0.8"/>
-      <!-- Inner ear shadow -->
-      <ellipse cx="0" cy="-65" rx="26" ry="30" fill="rgba(13,148,136,0.3)"/>
-      <!-- Speaker grille dots -->
-      <circle cx="-8" cy="-72" r="3.5" fill="rgba(13,148,136,0.5)"/>
-      <circle cx="8" cy="-72" r="3.5" fill="rgba(13,148,136,0.5)"/>
-      <circle cx="0" cy="-60" r="3.5" fill="rgba(13,148,136,0.5)"/>
-    </g>
+    <!-- Speaker grille — 3 dots arranged in triangle -->
+    <circle cx="-24" cy="-88" r="12" fill="rgba(255,255,255,0.22)"/>
+    <circle cx="24" cy="-88" r="12" fill="rgba(255,255,255,0.22)"/>
+    <circle cx="0" cy="-58" r="12" fill="rgba(255,255,255,0.22)"/>
 
-    <!-- Sound/connection waves between the pods -->
-    <g stroke="#5EEAD4" stroke-width="3.5" stroke-linecap="round" opacity="0.7">
-      <!-- Inner wave -->
-      <path d="M -40,-80 Q 0,-110 40,-80" fill="none"/>
-      <!-- Middle wave -->
-      <path d="M -55,-100 Q 0,-140 55,-100" fill="none"/>
-      <!-- Outer wave -->
-      <path d="M -70,-120 Q 0,-170 70,-120" fill="none"/>
-    </g>
+    <!-- Stem -->
+    <rect x="-17" y="118" width="34" height="148" rx="17" ry="17"
+          fill="url(#markGrad)" opacity="0.88"/>
 
-    <!-- Microphone icon (centered below pods) -->
-    <g transform="translate(0, 160)">
-      <!-- Mic body -->
-      <rect x="-22" y="-40" width="44" height="64" rx="22"
-            fill="white" opacity="0.95"/>
-      <!-- Mic grille lines -->
-      <line x1="-12" y1="-22" x2="12" y2="-22" stroke="rgba(13,148,136,0.35)" stroke-width="2.5"/>
-      <line x1="-12" y1="-12" x2="12" y2="-12" stroke="rgba(13,148,136,0.35)" stroke-width="2.5"/>
-      <line x1="-12" y1="-2" x2="12" y2="-2" stroke="rgba(13,148,136,0.35)" stroke-width="2.5"/>
-      <!-- Mic cradle arc -->
-      <path d="M -34,0 Q -34,42 0,42 Q 34,42 34,0"
-            fill="none" stroke="white" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
-      <!-- Mic stand -->
-      <line x1="0" y1="42" x2="0" y2="62" stroke="white" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
-      <!-- Mic base -->
-      <line x1="-18" y1="62" x2="18" y2="62" stroke="white" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+    <!-- Stem tip -->
+    <ellipse cx="0" cy="272" rx="23" ry="11"
+             fill="url(#markGrad)" opacity="0.6"/>
+
+    <!-- Signal arcs — emanating from right side -->
+    <g fill="none" stroke-linecap="round">
+      <!-- Arc 1: close, bold -->
+      <path d="M 108,-82 Q 178,0 108,82"
+            stroke="url(#markGrad)" stroke-width="14" opacity="0.88"/>
+      <!-- Arc 2: medium -->
+      <path d="M 148,-135 Q 240,0 148,135"
+            stroke="url(#markGrad)" stroke-width="12" opacity="0.52"/>
+      <!-- Arc 3: far, subtle -->
+      <path d="M 185,-182 Q 298,0 185,182"
+            stroke="url(#markGrad)" stroke-width="10" opacity="0.25"/>
     </g>
   </g>
 
-  <!-- Subtle border for definition -->
+  <!-- Subtle inner border for depth -->
   <rect x="40" y="40" width="944" height="944" rx="212" ry="212"
-        fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="2"/>
+        fill="none" stroke="rgba(255,255,255,0.055)" stroke-width="2"/>
 </svg>

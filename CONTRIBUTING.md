@@ -16,8 +16,11 @@ make test    # Run tests
 
 - macOS 12+ (Monterey or later)
 - Node.js 22+
+- Python 3 (for `node-gyp` native compilation)
 - Xcode Command Line Tools
 - Google Chrome
+
+**Recommended:** Install [mise](https://mise.jdx.dev) to auto-manage Node and Python versions. After installing mise, run `mise install` in the project root — it reads `.mise.toml` and `.nvmrc` to set up the correct versions automatically.
 
 ## Architecture
 

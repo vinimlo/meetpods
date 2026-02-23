@@ -1,201 +1,143 @@
-# MeetPods
+<p align="center">
+  <img src="assets/icon.png" width="128" height="128" alt="MeetPods icon" />
+</p>
 
-[![CI](https://github.com/vinimlo/meetpods/actions/workflows/ci.yml/badge.svg)](https://github.com/vinimlo/meetpods/actions/workflows/ci.yml)
-![macOS](https://img.shields.io/badge/macOS-12%2B-blue)
-![Node](https://img.shields.io/badge/node-%3E%3D22-green)
-![License](https://img.shields.io/github/license/vinimlo/meetpods)
+<h1 align="center">MeetPods</h1>
 
-**Toggle Google Meet mute with your AirPods.**
+<p align="center">
+  <strong>Toggle Google Meet mute with your AirPods.</strong>
+</p>
 
-When you press the AirPods stem on your iPhone, it mutes/unmutes calls. On macOS, that doesn't work — the button just plays/pauses music. MeetPods fixes this.
+<p align="center">
+  <a href="https://github.com/vinimlo/meetpods/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/vinimlo/meetpods/ci.yml?label=CI&logo=github" alt="CI" /></a>
+  <img src="https://img.shields.io/badge/macOS-12%2B-1a1a2e?logo=apple&logoColor=white" alt="macOS 12+" />
+  <img src="https://img.shields.io/badge/license-Apache--2.0-FF6B35" alt="Apache 2.0" />
+</p>
 
-Press your AirPods stem (or any media key) during a Google Meet call, and MeetPods toggles your microphone. Outside of calls, media keys work normally.
+---
+
+On iPhone, pressing the AirPods stem mutes and unmutes your call. On Mac, it just plays and pauses music. **MeetPods fixes this** — press your AirPods stem (or any media key) during a Google Meet call, and your microphone toggles. Outside of calls, media keys work normally.
+
+<br />
+
+<p align="center">
+  <img src="screenshots/demo.gif" width="280" alt="Extension popup cycling through states: disconnected, in call muted, in call mic on" />
+</p>
+
+<br />
+
+## Install
+
+### Option A — Download the app
+
+1. Grab the latest `.dmg` from [Releases](https://github.com/vinimlo/meetpods/releases)
+2. Open it, drag MeetPods to **Applications**
+3. Right-click → **Open** on first launch (the app is ad-hoc signed, not notarized)
+4. Grant **Accessibility** and **Microphone** permissions when prompted
+5. Install the Chrome extension — see [Extension setup](#chrome-extension) below
+
+### Option B — Build from source
+
+Requires macOS 12+, Node.js 22+, and Xcode Command Line Tools.
+
+```bash
+git clone https://github.com/vinimlo/meetpods.git
+cd meetpods
+make setup   # Install deps + full build
+make dev     # Launch the app
+```
+
+To package your own `.dmg`:
+
+```bash
+make install   # Build .dmg and open installer
+```
+
+### Chrome extension
+
+The Chrome extension connects to the menu bar app via local WebSocket and controls Google Meet's mute button.
+
+1. Build the extension: `npm run build:ext`
+2. Open `chrome://extensions/` in Google Chrome
+3. Enable **Developer mode** (toggle in top-right)
+4. Click **Load unpacked** → select the `dist/extension/` directory
+
+> When installed from a `.dmg`, the extension files are bundled at `MeetPods.app/Contents/Resources/extension/`.
 
 ## How it works
 
 ```
 AirPods stem press
-  → macOS media key event (NX_SYSDEFINED)
+  → macOS media key event
   → MeetPods intercepts via CGEventTap
-  → Queries Chrome Extension: "Is there an active Meet call?"
-  → Yes → Toggle mute button in Meet, consume the event
-  → No  → Pass through (play/pause music as usual)
+  → Asks Chrome extension: "Active Meet call?"
+  → Yes → Toggle mute, consume the key event
+  → No  → Pass through (music plays/pauses normally)
 ```
 
 Three components work together:
 
-| Component            | Role                                                                |
-| -------------------- | ------------------------------------------------------------------- |
-| **Electron app**     | Menu bar app that intercepts media keys and orchestrates everything |
-| **Native addon**     | C++ module using macOS CGEventTap to capture media key events       |
-| **Chrome Extension** | Detects active Meet calls and clicks the mute button in the DOM     |
+| Component | What it does |
+| --- | --- |
+| **Menu bar app** (Electron) | Intercepts media keys, orchestrates mute toggle, shows status in the menu bar |
+| **Native addon** (C++/ObjC++) | Uses macOS `CGEventTap` to capture media key events at the system level |
+| **Chrome extension** (Manifest V3) | Detects active Meet calls, clicks the mute button in the DOM |
 
-The Electron app and Chrome Extension communicate via a local WebSocket on `127.0.0.1:18432`.
+The app also listens for **AirPods stem-hold mute gestures** via `AVAudioApplication` (macOS 14+), suppressing the "Cannot Control Mic" system notification.
 
-## Requirements
+### Menu bar states
 
-- macOS 12+ (Monterey or later)
-- Google Chrome
-- Node.js 22+
-- Xcode Command Line Tools (for building the native addon)
-
-## Setup
-
-### 1. Clone and install
-
-```bash
-git clone https://github.com/vinimlo/meetpods.git
-cd meetpods
-npm install
-```
-
-Or with Docker:
-
-```bash
-docker compose run --rm meetpods npm install
-```
-
-### 2. Build the native addon
-
-The native addon must be built on macOS (it uses CoreGraphics and AppKit frameworks):
-
-```bash
-npm run build:native
-```
-
-### 3. Build TypeScript
-
-```bash
-npm run build:ts
-```
-
-### 4. Install the Chrome Extension
-
-1. Open `chrome://extensions/` in Google Chrome
-2. Enable **Developer mode** (toggle in top-right)
-3. Click **Load unpacked**
-4. Select the `dist/extension/` directory
-
-### 5. Run
-
-```bash
-npm start
-```
-
-MeetPods will appear in your menu bar. macOS will ask for **Accessibility permission** on first launch — this is required to intercept media key events.
-
-## Menu bar states
-
-| Icon                            | State           |
-| ------------------------------- | --------------- |
-| Gray microphone                 | No active call  |
-| Filled microphone + signal arcs | In call, mic ON |
-| Microphone with strikethrough   | In call, muted  |
-
-The icon briefly flashes when you toggle mute to confirm the action.
-
-## Chrome Extension popup
-
-Click the MeetPods extension icon in Chrome to see real-time status:
-
-- **Electron App** — connected or offline
-- **Google Meet** — in call or no call
-- **Microphone** — mic on or muted
-
-## Development
-
-### Project structure
-
-```
-meetpods/
-├── src/
-│   ├── main/                # Electron main process (TypeScript)
-│   │   ├── index.ts         # Entry point, orchestration
-│   │   ├── media-key.ts     # Native addon wrapper
-│   │   ├── native-msg.ts    # WebSocket bridge to extension
-│   │   └── tray.ts          # Menu bar icon and context menu
-│   ├── native/              # C++ native addon
-│   │   ├── media_key_tap.cc # CGEventTap implementation
-│   │   └── binding.gyp      # Build configuration
-│   └── extension/           # Chrome Extension (Manifest V3)
-│       ├── manifest.json
-│       ├── background.ts    # Service worker, tab tracking, WebSocket
-│       ├── content.ts       # Meet DOM interaction, mute control
-│       ├── popup.html       # Extension popup UI
-│       └── popup.ts         # Popup status logic
-├── assets/                  # Tray icons (SVG sources + PNG @1x/@2x)
-├── scripts/                 # Icon generation scripts
-└── docs/plans/              # Design and implementation docs
-```
-
-### Scripts
-
-```bash
-npm run build:ts      # Compile TypeScript
-npm run build:native  # Build C++ addon
-npm run build         # Both
-npm start             # Build + run
-npm run dev           # Quick run (TypeScript only, skip native rebuild)
-npm test              # Run tests
-npm run test:watch    # Watch mode
-npm run dist          # Package as .dmg
-```
-
-### Running tests
-
-```bash
-npm test
-```
-
-Or with Docker:
-
-```bash
-docker compose run --rm meetpods npm test
-```
-
-### Regenerating icons
-
-If you modify the SVG sources in `assets/` or `src/extension/icons/`:
-
-```bash
-node scripts/generate-icons.js           # Tray icons
-node scripts/generate-extension-icons.js  # Extension icons
-```
-
-Requires the `sharp` package (included in devDependencies).
-
-## Architecture decisions
-
-**WebSocket instead of Chrome Native Messaging** — Native Messaging requires Chrome to launch a separate binary via stdio, which would need its own IPC to the running Electron app. A local WebSocket server is simpler and achieves the same result.
-
-**DOM click instead of keyboard shortcut** — Clicking the mute button directly in the Meet DOM is more reliable than sending `Cmd+D`, and works without stealing window focus. This is critical since the user is typically in another app during calls.
-
-**Event consumption timing** — CGEventTap decides synchronously whether to consume events, but querying Meet status is async. A `shouldConsumeEvent` flag bridges this gap: it defaults to `false` (pass through) and is set to `true` only after confirming an active call.
+| Icon | Meaning |
+| --- | --- |
+| Gray microphone | No active call — media keys pass through |
+| Microphone + signal arcs | In call, mic on |
+| Microphone with slash | In call, muted |
 
 ## Permissions
 
-MeetPods requires **Accessibility** permission on macOS to intercept media key events. This is the same permission used by apps like Karabiner, Hammerspoon, and BetterTouchTool.
+| Permission | Why |
+| --- | --- |
+| **Accessibility** | Intercept media key events via `CGEventTap` — same as Karabiner or BetterTouchTool |
+| **Microphone** | Detect AirPods mute gestures and suppress the "Cannot Control Mic" notification (macOS 14+) |
+| **Chrome: `tabs`** | Detect which tabs have Google Meet open |
+| **Chrome: `meet.google.com`** | Inject content script to control the mute button |
 
-The Chrome Extension requires:
+## Development
 
-- `tabs` — to detect which tabs have Google Meet open
-- Host permission for `meet.google.com` — to inject the content script
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, architecture, and PR workflow.
+
+**Quick reference:**
+
+```bash
+make help          # Show all targets
+make dev           # Launch app (fast — skips native rebuild)
+make test          # Run tests
+make lint          # Lint code
+make build         # Full build (TS + extension + native)
+```
+
+Detailed documentation lives in [`docs/`](docs/):
+
+- [Architecture](docs/architecture.md) — full system design and data flow
+- [Native addon](docs/native-addon.md) — CGEventTap, AUHAL, and Darwin notifications
+- [Chrome extension](docs/chrome-extension.md) — Manifest V3, content scripts, WebSocket bridge
+- [AirPods deep dive](docs/airpods-macos-deep-dive.md) — how AirPods events work on macOS
 
 ## Limitations
 
-- Only works with Google Meet (by design — focused solution)
-- The native addon must be compiled on macOS (uses macOS-specific frameworks)
-- Cannot be distributed via the Mac App Store (Accessibility permission is not allowed in sandboxed apps)
-- Google Meet may change their DOM structure, requiring content script updates
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, architecture overview, and PR workflow.
+- **Google Meet only** — by design; MeetPods is a focused tool, not a universal mute switch
+- **macOS only** — the native addon uses CoreGraphics and CoreAudio frameworks
+- **Not on the Mac App Store** — Accessibility permission is not allowed in sandboxed apps
+- **DOM-dependent** — Google Meet UI changes may require content script updates
 
 ## Security
 
 See [SECURITY.md](SECURITY.md) for the security model and how to report vulnerabilities.
 
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
+
 ## License
 
-MIT
+Apache License 2.0 — see [LICENSE](LICENSE) for details.

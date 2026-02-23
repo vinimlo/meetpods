@@ -1,0 +1,9 @@
+# Tool versions managed by mise (https://mise.jdx.dev)
+# Node version is read from .nvmrc automatically — no duplication needed.
+
+[tools]
+python = "3"
+
+[env]
+# Ensure node-gyp finds the mise-managed Python
+npm_config_python = "{{env.MISE_PYTHON_DIR}}/bin/python3"

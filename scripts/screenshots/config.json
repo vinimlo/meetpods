@@ -1,0 +1,43 @@
+{
+  "project": {
+    "type": "chrome-extension",
+    "buildCommand": "npm run build:ext",
+    "serve": { "dir": "dist/extension", "port": 3000 },
+    "viewport": { "width": 400, "height": 500 },
+    "outputDir": "screenshots",
+    "extensionName": "MeetPods",
+    "storageDefaults": {},
+    "popupWrapper": {
+      "iframeSrc": "/popup.html",
+      "iframeWidth": 300,
+      "iframeHeight": 340,
+      "background": "#0D0B12"
+    },
+    "pages": {
+      "popup": "/popup.html"
+    }
+  },
+  "screenshots": [
+    {
+      "id": "01-popup-disconnected",
+      "description": "Popup showing disconnected state (default)",
+      "page": "popup",
+      "actions": [],
+      "waitMs": 2000
+    },
+    {
+      "id": "02-popup-connected-muted",
+      "description": "Popup showing connected to Electron, in a call, mic muted",
+      "page": "popup",
+      "actions": [],
+      "waitMs": 2000
+    },
+    {
+      "id": "03-popup-connected-unmuted",
+      "description": "Popup showing connected to Electron, in a call, mic on",
+      "page": "popup",
+      "actions": [],
+      "waitMs": 2000
+    }
+  ]
+}
