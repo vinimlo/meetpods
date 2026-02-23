@@ -18,3 +18,7 @@ Thumbs.db
 # Environment
 .env
 .env.*
+
+# Tools
+.claude/
+.playwright-mcp/
