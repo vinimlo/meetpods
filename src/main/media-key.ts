@@ -10,6 +10,7 @@ interface NativeAddon {
   isActive(): boolean;
   startAudioInput(): boolean;
   stopAudioInput(): void;
+  playFeedbackSound(isMuted: boolean): void;
 }
 
 function loadAddon(): NativeAddon {
@@ -45,7 +46,10 @@ export class MediaKeyManager extends EventEmitter {
     try {
       console.log(`${TAG} Starting media key listener...`);
       this.addon.start((key: string, keyDown: boolean) => {
-        if (keyDown) {
+        if (key === 'airpods_mute') {
+          console.log(`${TAG} AirPods mute event: shouldBeMuted=${keyDown}`);
+          this.emit('media-key', { key: 'airpods_mute', shouldBeMuted: keyDown });
+        } else if (keyDown) {
           console.log(`${TAG} Media key event: ${key}`);
           this.emit('media-key', { key });
         }
@@ -89,6 +93,14 @@ export class MediaKeyManager extends EventEmitter {
       console.log(`${TAG} stopAudioInput()`);
     } catch (err) {
       console.error(`${TAG} stopAudioInput() failed:`, err);
+    }
+  }
+
+  playFeedbackSound(isMuted: boolean): void {
+    try {
+      this.addon.playFeedbackSound(isMuted);
+    } catch (err) {
+      console.error(`${TAG} playFeedbackSound() failed:`, err);
     }
   }
 }

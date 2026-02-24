@@ -20,6 +20,7 @@ const { mockApp, mockSystemPreferences, mockMediaKeysInstance, mockBridgeInstanc
       setConsume: vi.fn(),
       startAudioInput: vi.fn().mockReturnValue(true),
       stopAudioInput: vi.fn(),
+      playFeedbackSound: vi.fn(),
       on: vi.fn(),
       emit: vi.fn(),
     },
@@ -307,6 +308,78 @@ describe('MeetPods main orchestration', () => {
         expect(mockBridgeInstance.toggleMute).toHaveBeenCalled();
       });
 
+      it('handles airpods_mute when state differs', async () => {
+        // lastMeetStatus.muted defaults to false, shouldBeMuted=true → should toggle
+        mockBridgeInstance.toggleMute.mockResolvedValue({ success: true, muted: true });
+        await mediaKeyOnHandlers['media-key']({ key: 'airpods_mute', shouldBeMuted: true });
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(mockBridgeInstance.toggleMute).toHaveBeenCalled();
+        expect(mockMediaKeysInstance.playFeedbackSound).toHaveBeenCalledWith(true);
+      });
+
+      it('no-ops airpods_mute when state matches', async () => {
+        // Set state to muted
+        bridgeOnHandlers['meet-status']({ active: true, muted: true, tabId: 1 });
+        mockBridgeInstance.toggleMute.mockClear();
+
+        vi.advanceTimersByTime(600);
+        // shouldBeMuted=true matches muted=true → no-op
+        await mediaKeyOnHandlers['media-key']({ key: 'airpods_mute', shouldBeMuted: true });
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(mockBridgeInstance.toggleMute).not.toHaveBeenCalled();
+      });
+
+      it('toggles airpods_mute when unmuting and state is muted', async () => {
+        bridgeOnHandlers['meet-status']({ active: true, muted: true, tabId: 1 });
+        mockBridgeInstance.toggleMute.mockClear();
+        mockBridgeInstance.toggleMute.mockResolvedValue({ success: true, muted: false });
+
+        vi.advanceTimersByTime(600);
+        await mediaKeyOnHandlers['media-key']({ key: 'airpods_mute', shouldBeMuted: false });
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(mockBridgeInstance.toggleMute).toHaveBeenCalled();
+        expect(mockTrayInstance.flash).toHaveBeenCalled();
+        expect(mockMediaKeysInstance.playFeedbackSound).toHaveBeenCalledWith(false);
+      });
+
+      it('airpods_mute early returns when disabled', async () => {
+        getTrayToggle()(false);
+        mockBridgeInstance.toggleMute.mockClear();
+
+        vi.advanceTimersByTime(600);
+        await mediaKeyOnHandlers['media-key']({ key: 'airpods_mute', shouldBeMuted: true });
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(mockBridgeInstance.toggleMute).not.toHaveBeenCalled();
+      });
+
+      it('airpods_mute early returns when not connected', async () => {
+        mockBridgeInstance.isConnected = false;
+        mockBridgeInstance.toggleMute.mockClear();
+
+        vi.advanceTimersByTime(600);
+        await mediaKeyOnHandlers['media-key']({ key: 'airpods_mute', shouldBeMuted: true });
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(mockBridgeInstance.toggleMute).not.toHaveBeenCalled();
+      });
+
+      it('airpods_mute queries status when meet is not active', async () => {
+        bridgeOnHandlers['meet-status']({ active: false, muted: false, tabId: null });
+        mockBridgeInstance.queryMeetStatus.mockResolvedValue({ active: true, muted: false, tabId: 1 });
+        mockBridgeInstance.toggleMute.mockClear();
+
+        vi.advanceTimersByTime(600);
+        await mediaKeyOnHandlers['media-key']({ key: 'airpods_mute', shouldBeMuted: true });
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(mockBridgeInstance.queryMeetStatus).toHaveBeenCalled();
+        expect(mockBridgeInstance.toggleMute).toHaveBeenCalled();
+      });
+
       it('ignores non-play_pause keys', async () => {
         await mediaKeyOnHandlers['media-key']({ key: 'next_track' });
         await vi.advanceTimersByTimeAsync(0);
@@ -332,6 +405,15 @@ describe('MeetPods main orchestration', () => {
 
         expect(mockTrayInstance.flash).toHaveBeenCalled();
         expect(mockTrayInstance.setState).toHaveBeenCalledWith('muted');
+        expect(mockMediaKeysInstance.playFeedbackSound).toHaveBeenCalledWith(true);
+      });
+
+      it('plays unmuted sound on successful unmute', async () => {
+        mockBridgeInstance.toggleMute.mockResolvedValue({ success: true, muted: false });
+        await mediaKeyOnHandlers['media-key']({ key: 'play_pause' });
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(mockMediaKeysInstance.playFeedbackSound).toHaveBeenCalledWith(false);
       });
 
       it('does not flash when muted is undefined', async () => {

@@ -92,6 +92,40 @@ describe('MediaKeyManager', () => {
       expect(events).toEqual([{ key: 'play_pause' }]);
     });
 
+    it('emits airpods_mute with shouldBeMuted=true', async () => {
+      installAddonMock('dev');
+      const { MediaKeyManager } = await import('../media-key');
+      const mgr = new MediaKeyManager();
+
+      mockAddon.start.mockImplementation((cb: any) => {
+        cb('airpods_mute', true);
+        return true;
+      });
+
+      const events: any[] = [];
+      mgr.on('media-key', (e) => events.push(e));
+
+      mgr.start();
+      expect(events).toEqual([{ key: 'airpods_mute', shouldBeMuted: true }]);
+    });
+
+    it('emits airpods_mute with shouldBeMuted=false', async () => {
+      installAddonMock('dev');
+      const { MediaKeyManager } = await import('../media-key');
+      const mgr = new MediaKeyManager();
+
+      mockAddon.start.mockImplementation((cb: any) => {
+        cb('airpods_mute', false);
+        return true;
+      });
+
+      const events: any[] = [];
+      mgr.on('media-key', (e) => events.push(e));
+
+      mgr.start();
+      expect(events).toEqual([{ key: 'airpods_mute', shouldBeMuted: false }]);
+    });
+
     it('ignores keyDown=false events', async () => {
       installAddonMock('dev');
       const { MediaKeyManager } = await import('../media-key');

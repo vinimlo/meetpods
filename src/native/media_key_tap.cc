@@ -31,6 +31,8 @@ static std::atomic<uint64_t> lastTapEventTimeMs{0};
 static dispatch_source_t healthTimer = nullptr;
 static std::atomic<uint64_t> lastAirpodsMuteTimeMs{0};
 static const void *kDarwinObserver = &kDarwinObserver;
+static bool avAudioHandlerRegistered = false;  // handler registered (Start())
+static bool avAudioHandlerActive = false;       // handler CAN fire (AUHAL running + registered)
 
 // AUHAL: lightweight audio input unit to satisfy macOS "active audio I/O" requirement.
 // Without this, AVAudioApplication.setInputMuteStateChangeHandler never fires.
@@ -38,6 +40,7 @@ static AudioComponentInstance auHAL = nullptr;
 static AudioBufferList *inputBufferList = nullptr;
 static UInt32 inputBufferChannels = 0;
 static bool deviceListenerInstalled = false;
+
 
 static uint64_t currentTimeMs() {
     return (uint64_t)([[NSDate date] timeIntervalSince1970] * 1000.0);
@@ -76,6 +79,17 @@ static void fireMediaKeyCallback(bool keyDown) {
     });
 }
 
+static void fireAirpodsMuteCallback(bool shouldBeMuted) {
+    auto* flag = new bool(shouldBeMuted);
+    tsfn.NonBlockingCall(flag, [](Napi::Env env, Napi::Function jsCallback, bool* data) {
+        jsCallback.Call({
+            Napi::String::New(env, "airpods_mute"),
+            Napi::Boolean::New(env, *data)
+        });
+        delete data;
+    });
+}
+
 // Darwin notification callback for AirPods stem mute gesture
 // Fires system-wide when audioaccessoryd processes AirPods mute — no mic permission needed
 static void darwinMuteNotificationCallback(
@@ -85,9 +99,16 @@ static void darwinMuteNotificationCallback(
     const void *object,
     CFDictionaryRef userInfo
 ) {
+    // When AVAudioApplication handler is active, it is the authoritative source for
+    // AirPods mute events. Darwin fires for Bluetooth reconnections, ANC changes, and
+    // routing changes — not just user gestures. Only use Darwin as a fallback.
+    if (avAudioHandlerActive) {
+        fprintf(stderr, "[MeetPods:native] Darwin mute notification: skipping (AVAudioApplication active)\n");
+        return;
+    }
     if (isDuplicateAirpodsMute(kMuteDedupWindowMs, "Darwin mute notification")) return;
-    fprintf(stderr, "[MeetPods:native] Darwin notification: AirPods mute gesture detected\n");
-    fireMediaKeyCallback(true);
+    fprintf(stderr, "[MeetPods:native] Darwin notification: AirPods mute gesture detected (fallback)\n");
+    fireMediaKeyCallback(true);  // blind toggle — same as working version
 }
 
 static CGEventRef eventTapCallback(
@@ -314,7 +335,8 @@ static bool setupAUHAL() {
         goto cleanup;
     }
 
-    fprintf(stderr, "[MeetPods:native] AUHAL: audio input started (channels=%u)\n", (unsigned)inputBufferChannels);
+    avAudioHandlerActive = avAudioHandlerRegistered;
+    fprintf(stderr, "[MeetPods:native] AUHAL: audio input started (channels=%u, avAudioHandlerActive=%d)\n", (unsigned)inputBufferChannels, avAudioHandlerActive);
     installDeviceChangeListener();
     return true;
 
@@ -328,6 +350,7 @@ cleanup:
 static void teardownAUHAL() {
     if (!auHAL) return;
 
+    avAudioHandlerActive = false;
     fprintf(stderr, "[MeetPods:native] AUHAL: stopping audio input\n");
     removeDeviceChangeListener();
 
@@ -420,11 +443,12 @@ Napi::Value Start(const Napi::CallbackInfo& info) {
                     inputShouldBeMuted);
 
             if (!isDuplicateAirpodsMute(kMuteDedupWindowMs, "AVAudioApplication")) {
-                fireMediaKeyCallback(true);
+                fireAirpodsMuteCallback(inputShouldBeMuted);
             }
             return YES;  // Accept = suppresses "Cannot Control Mic" notification
         } error:&error];
         if (ok) {
+            avAudioHandlerRegistered = true;
             fprintf(stderr, "[MeetPods:native] AVAudioApplication mic mute handler registered (AirPods support)\n");
         } else {
             fprintf(stderr, "[MeetPods:native] AVAudioApplication handler FAILED: %s\n",
@@ -484,6 +508,8 @@ Napi::Value Stop(const Napi::CallbackInfo& info) {
     );
 
     // Unregister AirPods mic mute handler
+    avAudioHandlerRegistered = false;
+    avAudioHandlerActive = false;
     if (@available(macOS 14.0, *)) {
         [AVAudioApplication.sharedInstance setInputMuteStateChangeHandler:nil error:nil];
     }
@@ -514,6 +540,30 @@ Napi::Value Stop(const Napi::CallbackInfo& info) {
     return info.Env().Undefined();
 }
 
+// ── Feedback sound helpers ─────────────────────────────────────────────
+
+Napi::Value PlayFeedbackSound(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    if (info.Length() < 1 || !info[0].IsBoolean()) {
+        Napi::TypeError::New(env, "Boolean (isMuted) required").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+    bool isMuted = info[0].As<Napi::Boolean>().Value();
+
+    // NSSound plays through the default output device (AirPods when connected),
+    // unlike AudioServicesPlayAlertSound which uses the alert sound device.
+    NSString *soundName = isMuted ? @"Tink" : @"Pop";
+    NSSound *sound = [NSSound soundNamed:soundName];
+    if (sound) {
+        [sound play];
+        fprintf(stderr, "[MeetPods:native] PlayFeedbackSound: playing '%s'\n", [soundName UTF8String]);
+    } else {
+        fprintf(stderr, "[MeetPods:native] PlayFeedbackSound: sound '%s' not found\n", [soundName UTF8String]);
+    }
+
+    return env.Undefined();
+}
+
 Napi::Value SetConsume(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
     if (info.Length() < 1 || !info[0].IsBoolean()) {
@@ -538,6 +588,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     exports.Set("isActive", Napi::Function::New(env, IsActive));
     exports.Set("startAudioInput", Napi::Function::New(env, StartAudioInput));
     exports.Set("stopAudioInput", Napi::Function::New(env, StopAudioInput));
+    exports.Set("playFeedbackSound", Napi::Function::New(env, PlayFeedbackSound));
     return exports;
 }
 

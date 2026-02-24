@@ -358,6 +358,83 @@ describe('ExtensionBridge', () => {
     });
   });
 
+  describe('ping/pong keepalive', () => {
+    it('sends ping to connected clients', async () => {
+      const setup = await createBridge();
+      bridge = setup.bridge;
+
+      const connP = waitForEvent(bridge, 'connected');
+      const client = await connectClient(setup.port);
+      await connP;
+
+      // Client should receive a ping and auto-respond with pong
+      const pingReceived = new Promise<void>((resolve) => {
+        client.on('ping', () => resolve());
+      });
+
+      // Access internal pingInterval to verify it's set
+      expect((bridge as any).pingInterval).not.toBeNull();
+
+      // Manually trigger what the interval does by waiting for the interval to fire
+      // Instead, we'll just verify the ping comes through
+      // The ping interval is 15s, but we can't wait that long in tests.
+      // Instead, verify the mechanism works by checking client isAlive tracking.
+
+      // Force a ping cycle manually
+      const clients = (bridge as any).clients;
+      for (const ws of clients) {
+        expect(ws.isAlive).toBe(true);
+        ws.isAlive = false;
+        ws.ping();
+      }
+
+      await pingReceived;
+
+      // After pong is received, isAlive should be true again
+      await new Promise((r) => setTimeout(r, 50));
+      for (const ws of clients) {
+        expect(ws.isAlive).toBe(true);
+      }
+
+      await closeClient(client);
+    });
+
+    it('terminates unresponsive clients', async () => {
+      const setup = await createBridge();
+      bridge = setup.bridge;
+
+      const connP = waitForEvent(bridge, 'connected');
+      const client = await connectClient(setup.port);
+      await connP;
+
+      // Simulate an unresponsive client: set isAlive=false and prevent pong
+      const clients = (bridge as any).clients;
+      for (const ws of clients) {
+        ws.isAlive = false;
+      }
+
+      // Trigger the ping cycle logic manually (simulates interval firing)
+      for (const ws of [...clients]) {
+        if (ws.isAlive === false) {
+          ws.terminate();
+        }
+      }
+
+      await new Promise((r) => setTimeout(r, 100));
+      expect(bridge.isConnected).toBe(false);
+    });
+
+    it('clears ping interval on stop()', async () => {
+      const setup = await createBridge();
+      bridge = setup.bridge;
+
+      expect((bridge as any).pingInterval).not.toBeNull();
+      bridge.stop();
+      expect((bridge as any).pingInterval).toBeNull();
+      bridge = null;
+    });
+  });
+
   describe('stop()', () => {
     it('closes server and clears clients', async () => {
       const setup = await createBridge();

@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 
 const TAG = '[MeetPods:bridge]';
 const REQUEST_TIMEOUT_MS = 2000;
+const PING_INTERVAL_MS = 15_000;
 
 export interface MeetStatus {
   active: boolean;
@@ -20,6 +21,7 @@ export class ExtensionBridge extends EventEmitter {
   private wss: any = null;
   private clients: Set<any> = new Set();
   private port: number;
+  private pingInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(port: number = 18432) {
     super();
@@ -36,10 +38,27 @@ export class ExtensionBridge extends EventEmitter {
 
     console.log(`${TAG} WebSocket server listening on 127.0.0.1:${this.port}`);
 
+    this.pingInterval = setInterval(() => {
+      for (const client of this.clients) {
+        if (client.isAlive === false) {
+          console.log(`${TAG} Client unresponsive — terminating`);
+          client.terminate();
+          continue;
+        }
+        client.isAlive = false;
+        client.ping();
+      }
+    }, PING_INTERVAL_MS);
+
     this.wss.on('connection', (ws: any) => {
+      ws.isAlive = true;
       this.clients.add(ws);
       console.log(`${TAG} Client connected (total: ${this.clients.size})`);
       this.emit('connected');
+
+      ws.on('pong', () => {
+        ws.isAlive = true;
+      });
 
       ws.on('message', (data: Buffer) => {
         try {
@@ -125,6 +144,10 @@ export class ExtensionBridge extends EventEmitter {
 
   stop(): void {
     console.log(`${TAG} Stopping WebSocket server`);
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
+    }
     if (this.wss) {
       this.wss.close();
       this.wss = null;
