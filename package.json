@@ -1,6 +1,6 @@
 {
   "name": "meetpods",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Toggle Google Meet mute via AirPods media keys",
   "author": "Vinicius Melo <vinimelo@riseup.net>",
   "repository": {
@@ -41,7 +41,8 @@
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "bump": "node scripts/bump-version.mjs"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.3",

@@ -1,6 +1,6 @@
 .PHONY: install setup dev ext test test-watch coverage \
        build build-ts build-ext build-native icons dist clean \
-       lint lint-fix format format-check help
+       lint lint-fix format format-check bump help
 
 # ── Install (production) ─────────────────────────
 
@@ -82,6 +82,9 @@ dist: build  ## Build .dmg installer (no auto-open)
 
 clean:  ## Remove all build artifacts
 	rm -rf dist src/native/build
+
+bump:  ## Bump version (usage: make bump V=0.2.0 or make bump V=minor)
+	node scripts/bump-version.mjs $(V)
 
 # ── Code Quality ────────────────────────────────
 
