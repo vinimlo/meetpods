@@ -8,6 +8,7 @@ let isInCall = false;
 let isMuted = false;
 let muteButton: HTMLButtonElement | null = null;
 let observer: MutationObserver | null = null;
+let isToggling = false;
 
 console.log(`${TAG} Content script loaded on ${window.location.href}`);
 
@@ -56,12 +57,20 @@ function toggleMute(): Promise<{ success: boolean; muted?: boolean; error?: stri
     return Promise.resolve({ success: false, error: 'Mute button not found' });
   }
   console.log(`${TAG} toggleMute() — clicking mute button`);
+  isToggling = true;
   muteButton.click();
   return new Promise((resolve) => {
     setTimeout(() => {
       checkCallStatus();
+      isToggling = false;
       console.log(`${TAG} toggleMute() — after click: muted=${isMuted}`);
       resolve({ success: true, muted: isMuted });
+      // Deferred push: the MutationObserver push was suppressed during isToggling,
+      // so explicitly send the status update after sendResponse has already fired.
+      // This is safe because sendResponse closed its port — sendMessage uses a new one.
+      chrome.runtime
+        .sendMessage({ type: 'status_changed', active: isInCall, muted: isMuted })
+        .catch(() => {});
     }, POST_CLICK_DELAY_MS);
   });
 }
@@ -72,6 +81,7 @@ function getStatus(): { active: boolean; muted: boolean } {
 }
 
 function pushStatusChange(): void {
+  if (isToggling) return;
   const prevActive = isInCall;
   const prevMuted = isMuted;
   checkCallStatus();

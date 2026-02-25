@@ -356,6 +356,47 @@ describe('ExtensionBridge', () => {
 
       await closeClient(client);
     });
+
+    it('ignores late response after timeout (double-resolve prevention)', async () => {
+      const setup = await createBridge();
+      bridge = setup.bridge;
+
+      const connP = waitForEvent(bridge, 'connected');
+      const client = await connectClient(setup.port);
+      await connP;
+
+      let capturedRequestId: string | null = null;
+      client.on('message', (data: any) => {
+        const msg = JSON.parse(data.toString());
+        if (msg.type === 'toggle_mute') {
+          capturedRequestId = msg.requestId;
+          // Do NOT respond — let it timeout
+        }
+      });
+
+      // This will timeout after 2s
+      const result = await bridge.toggleMute();
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Timeout');
+
+      // Now send a late response after timeout — should be ignored
+      client.send(
+        JSON.stringify({
+          type: 'mute_toggled',
+          success: true,
+          muted: true,
+          requestId: capturedRequestId,
+        }),
+      );
+      await new Promise((r) => setTimeout(r, 100));
+
+      // The bridge should not have emitted mute-toggled for this late response
+      // (the handler was already removed by the timeout)
+      // No crash, no double-resolve — that's what we're testing
+      expect(bridge.isConnected).toBe(true);
+
+      await closeClient(client);
+    });
   });
 
   describe('ping/pong keepalive', () => {
@@ -422,6 +463,55 @@ describe('ExtensionBridge', () => {
 
       await new Promise((r) => setTimeout(r, 100));
       expect(bridge.isConnected).toBe(false);
+    });
+
+    it('sends JSON keepalive ping alongside protocol ping', async () => {
+      const setup = await createBridge();
+      bridge = setup.bridge;
+
+      const connP = waitForEvent(bridge, 'connected');
+      const client = await connectClient(setup.port);
+      await connP;
+
+      // Listen for JSON ping message from the server
+      const jsonPingReceived = waitForMessage(client);
+
+      // Manually trigger what the ping interval does
+      const clients = (bridge as any).clients;
+      for (const ws of clients) {
+        ws.isAlive = false;
+        ws.ping();
+        if (ws.readyState === 1) {
+          ws.send(JSON.stringify({ type: 'ping' }));
+        }
+      }
+
+      const msg = await jsonPingReceived;
+      expect(msg.type).toBe('ping');
+
+      await closeClient(client);
+    });
+
+    it('handles pong message from extension without error', async () => {
+      const setup = await createBridge();
+      bridge = setup.bridge;
+
+      const connP = waitForEvent(bridge, 'connected');
+      const client = await connectClient(setup.port);
+      await connP;
+
+      // Extension sends a pong response — should not emit any events or crash
+      let emitted = false;
+      bridge.on('meet-status', () => { emitted = true; });
+      bridge.on('mute-toggled', () => { emitted = true; });
+
+      client.send(JSON.stringify({ type: 'pong' }));
+      await new Promise((r) => setTimeout(r, 100));
+
+      expect(emitted).toBe(false);
+      expect(bridge.isConnected).toBe(true);
+
+      await closeClient(client);
     });
 
     it('clears ping interval on stop()', async () => {

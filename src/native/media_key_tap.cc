@@ -1,5 +1,8 @@
 #include <napi.h>
 #include <atomic>
+#include <cmath>
+#include <cstdlib>
+#include <vector>
 #include <CoreGraphics/CoreGraphics.h>
 #include <AppKit/AppKit.h>
 #include <AVFoundation/AVFoundation.h>
@@ -13,6 +16,125 @@
 static const uint64_t kTapDedupWindowMs = 200;
 static const uint64_t kMuteDedupWindowMs = 500;
 static const uint64_t kHealthCheckIntervalSec = 5;
+
+// ── Audio feedback sound generation ───────────────────────────────────
+
+static std::atomic<float> feedbackVolume{0.4f};
+
+// Pre-generated players: created once, reused on every play.
+// Avoids create/destroy lifecycle issues under MRC and CoreAudio contention.
+static AVAudioPlayer *feedbackPlayerMute = nil;
+static AVAudioPlayer *feedbackPlayerUnmute = nil;
+static float feedbackPlayersVolume = -1.0f;
+
+static const float kSampleRate = 44100.0f;
+static const float kToneAmplitude = 0.5f;
+static const int kFadeMs = 5;
+static const int kToneMs = 80;
+static const int kGapMs = 5;
+
+struct ToneSpec {
+    float freq1;  // Hz
+    float freq2;  // Hz
+};
+
+// Build a WAV file in memory from two-tone PCM data.
+// Returns a retained NSData (caller must release under MRC).
+static NSData *buildFeedbackWAV(ToneSpec spec, float volume) {
+    int toneSamples = (int)(kSampleRate * kToneMs / 1000.0f);
+    int gapSamples = (int)(kSampleRate * kGapMs / 1000.0f);
+    int fadeSamples = (int)(kSampleRate * kFadeMs / 1000.0f);
+    int totalFrames = toneSamples * 2 + gapSamples;
+
+    std::vector<float> floatSamples(totalFrames, 0.0f);
+    float freqs[2] = { spec.freq1, spec.freq2 };
+    for (int t = 0; t < 2; t++) {
+        int offset = t * (toneSamples + gapSamples);
+        for (int i = 0; i < toneSamples; i++) {
+            float sample = kToneAmplitude * sinf(2.0f * M_PI * freqs[t] * i / kSampleRate);
+            float env = 1.0f;
+            if (i < fadeSamples) env = (float)i / fadeSamples;
+            else if (i >= toneSamples - fadeSamples) env = (float)(toneSamples - 1 - i) / fadeSamples;
+            floatSamples[offset + i] = sample * env * volume;
+        }
+    }
+
+    int numSamples = totalFrames;
+    int dataSize = numSamples * sizeof(int16_t);
+    std::vector<int16_t> pcmData(numSamples);
+    for (int i = 0; i < numSamples; i++) {
+        float clamped = floatSamples[i];
+        if (clamped > 1.0f) clamped = 1.0f;
+        if (clamped < -1.0f) clamped = -1.0f;
+        pcmData[i] = (int16_t)(clamped * 32767.0f);
+    }
+
+    int wavSize = 44 + dataSize;
+    std::vector<uint8_t> wav(wavSize);
+    uint8_t *p = wav.data();
+
+    memcpy(p, "RIFF", 4); p += 4;
+    uint32_t chunkSize = wavSize - 8;
+    memcpy(p, &chunkSize, 4); p += 4;
+    memcpy(p, "WAVE", 4); p += 4;
+
+    memcpy(p, "fmt ", 4); p += 4;
+    uint32_t fmtSize = 16;
+    memcpy(p, &fmtSize, 4); p += 4;
+    uint16_t audioFormat = 1;
+    memcpy(p, &audioFormat, 2); p += 2;
+    uint16_t numChannels = 1;
+    memcpy(p, &numChannels, 2); p += 2;
+    uint32_t sampleRate = (uint32_t)kSampleRate;
+    memcpy(p, &sampleRate, 4); p += 4;
+    uint32_t byteRate = sampleRate * numChannels * sizeof(int16_t);
+    memcpy(p, &byteRate, 4); p += 4;
+    uint16_t blockAlign = numChannels * sizeof(int16_t);
+    memcpy(p, &blockAlign, 2); p += 2;
+    uint16_t bitsPerSample = 16;
+    memcpy(p, &bitsPerSample, 2); p += 2;
+
+    memcpy(p, "data", 4); p += 4;
+    uint32_t dataChunkSize = (uint32_t)dataSize;
+    memcpy(p, &dataChunkSize, 4); p += 4;
+    memcpy(p, pcmData.data(), dataSize);
+
+    // Return retained NSData — no autorelease, caller owns it
+    return [[NSData alloc] initWithBytes:wav.data() length:(NSUInteger)wavSize];
+}
+
+// Create an AVAudioPlayer from owned WAV data. Releases wavData after init.
+static AVAudioPlayer *createPlayer(NSData *wavData) {
+    NSError *error = nil;
+    AVAudioPlayer *player = [[AVAudioPlayer alloc] initWithData:wavData error:&error];
+    [wavData release];  // player retains internally; release our copy
+    if (!player) {
+        fprintf(stderr, "[MeetPods:native] AVAudioPlayer: init FAILED — %s\n",
+                error ? [[error localizedDescription] UTF8String] : "unknown error");
+        return nil;
+    }
+    [player setVolume:1.0f];  // volume already baked into PCM data
+    [player prepareToPlay];   // preload audio buffers for instant playback
+    return player;
+}
+
+// Ensure both feedback players exist at the current volume.
+// Called on main queue before each play — creates players lazily, recreates on volume change.
+static void ensureFeedbackPlayers(float volume) {
+    if (feedbackPlayersVolume == volume && feedbackPlayerMute && feedbackPlayerUnmute) return;
+
+    fprintf(stderr, "[MeetPods:native] ensureFeedbackPlayers: creating players (vol=%.0f%%)\n", volume * 100);
+
+    if (feedbackPlayerMute)   { [feedbackPlayerMute release];   feedbackPlayerMute = nil; }
+    if (feedbackPlayerUnmute) { [feedbackPlayerUnmute release]; feedbackPlayerUnmute = nil; }
+
+    feedbackPlayerMute   = createPlayer(buildFeedbackWAV({880.0f, 587.0f}, volume));
+    feedbackPlayerUnmute = createPlayer(buildFeedbackWAV({587.0f, 880.0f}, volume));
+    feedbackPlayersVolume = volume;
+
+    fprintf(stderr, "[MeetPods:native] ensureFeedbackPlayers: mute=%p unmute=%p\n",
+            (void*)feedbackPlayerMute, (void*)feedbackPlayerUnmute);
+}
 
 // Reusable property address for default input device queries
 static const AudioObjectPropertyAddress kDefaultInputDeviceAddr = {
@@ -550,17 +672,43 @@ Napi::Value PlayFeedbackSound(const Napi::CallbackInfo& info) {
     }
     bool isMuted = info[0].As<Napi::Boolean>().Value();
 
-    // NSSound plays through the default output device (AirPods when connected),
-    // unlike AudioServicesPlayAlertSound which uses the alert sound device.
-    NSString *soundName = isMuted ? @"Tink" : @"Pop";
-    NSSound *sound = [NSSound soundNamed:soundName];
-    if (sound) {
-        [sound play];
-        fprintf(stderr, "[MeetPods:native] PlayFeedbackSound: playing '%s'\n", [soundName UTF8String]);
-    } else {
-        fprintf(stderr, "[MeetPods:native] PlayFeedbackSound: sound '%s' not found\n", [soundName UTF8String]);
+    float vol = feedbackVolume.load(std::memory_order_relaxed);
+    if (vol <= 0.0f) {
+        fprintf(stderr, "[MeetPods:native] PlayFeedbackSound: volume is 0, skipping\n");
+        return env.Undefined();
     }
 
+    fprintf(stderr, "[MeetPods:native] PlayFeedbackSound: %s (vol=%.0f%%)\n",
+            isMuted ? "mute (descending)" : "unmute (ascending)", vol * 100);
+
+    // Dispatch to main queue — rewind and replay pre-generated player
+    bool muted = isMuted;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        ensureFeedbackPlayers(vol);
+        AVAudioPlayer *player = muted ? feedbackPlayerMute : feedbackPlayerUnmute;
+        if (!player) {
+            fprintf(stderr, "[MeetPods:native] PlayFeedbackSound: player is nil, cannot play\n");
+            return;
+        }
+        [player stop];           // Reset from any prior state (including failed play)
+        [player setCurrentTime:0];
+        BOOL ok = [player play];
+        fprintf(stderr, "[MeetPods:native] PlayFeedbackSound: play=%s (reuse)\n", ok ? "YES" : "NO");
+    });
+    return env.Undefined();
+}
+
+Napi::Value SetFeedbackVolume(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    if (info.Length() < 1 || !info[0].IsNumber()) {
+        Napi::TypeError::New(env, "Number (0.0-1.0) required").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+    float vol = info[0].As<Napi::Number>().FloatValue();
+    if (vol < 0.0f) vol = 0.0f;
+    if (vol > 1.0f) vol = 1.0f;
+    feedbackVolume.store(vol, std::memory_order_relaxed);
+    fprintf(stderr, "[MeetPods:native] SetFeedbackVolume: %.0f%%\n", vol * 100);
     return env.Undefined();
 }
 
@@ -589,6 +737,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     exports.Set("startAudioInput", Napi::Function::New(env, StartAudioInput));
     exports.Set("stopAudioInput", Napi::Function::New(env, StopAudioInput));
     exports.Set("playFeedbackSound", Napi::Function::New(env, PlayFeedbackSound));
+    exports.Set("setFeedbackVolume", Napi::Function::New(env, SetFeedbackVolume));
     return exports;
 }
 

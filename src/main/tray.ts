@@ -7,7 +7,12 @@ export class MeetPodsTray {
   private tray: Tray;
   private state: TrayState = 'idle';
   private enabled = true;
+  private feedbackVolumePct = 40;
+  private showMuteHud = true;
   private onToggleEnabled: (enabled: boolean) => void;
+  private onVolumeClick: (() => void) | null = null;
+  private onTestSound: (() => void) | null = null;
+  private onShowMuteHudChanged: ((show: boolean) => void) | null = null;
 
   constructor(onToggleEnabled: (enabled: boolean) => void) {
     this.onToggleEnabled = onToggleEnabled;
@@ -70,6 +75,24 @@ export class MeetPodsTray {
           app.setLoginItemSettings({ openAtLogin: menuItem.checked });
         },
       },
+      {
+        label: `Feedback Volume (${this.feedbackVolumePct}%)`,
+        click: () => this.onVolumeClick?.(),
+      },
+      {
+        label: 'Test Sound',
+        click: () => this.onTestSound?.(),
+      },
+      {
+        label: 'Show Mute HUD',
+        type: 'checkbox',
+        checked: this.showMuteHud,
+        click: () => {
+          this.showMuteHud = !this.showMuteHud;
+          this.onShowMuteHudChanged?.(this.showMuteHud);
+          this.updateMenu();
+        },
+      },
       { type: 'separator' },
       {
         label: `About MeetPods v${app.getVersion()}`,
@@ -95,6 +118,32 @@ export class MeetPodsTray {
     setTimeout(() => {
       this.tray.setImage(this.getIcon(original));
     }, 200);
+  }
+
+  getBounds(): Electron.Rectangle {
+    return this.tray.getBounds();
+  }
+
+  setOnVolumeClick(handler: () => void): void {
+    this.onVolumeClick = handler;
+  }
+
+  setOnTestSound(handler: () => void): void {
+    this.onTestSound = handler;
+  }
+
+  setVolume(volumePct: number): void {
+    this.feedbackVolumePct = Math.round(volumePct);
+    this.updateMenu();
+  }
+
+  setShowMuteHud(show: boolean): void {
+    this.showMuteHud = show;
+    this.updateMenu();
+  }
+
+  setOnShowMuteHudChanged(handler: (show: boolean) => void): void {
+    this.onShowMuteHudChanged = handler;
   }
 
   destroy(): void {

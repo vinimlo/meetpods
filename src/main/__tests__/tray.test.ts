@@ -184,5 +184,58 @@ describe('MeetPodsTray', () => {
       quitItem.click();
       expect(app.quit).toHaveBeenCalledOnce();
     });
+
+    it('Test Sound calls onTestSound handler', () => {
+      const handler = vi.fn();
+      tray.setOnTestSound(handler);
+      // Force menu rebuild to pick up handler
+      tray.setState('idle');
+
+      const testSoundItem = mocks.menuTemplate.find((item: any) => item.label === 'Test Sound');
+      expect(testSoundItem).toBeDefined();
+      testSoundItem.click();
+      expect(handler).toHaveBeenCalledOnce();
+    });
+
+    it('Test Sound is safe to click without handler', () => {
+      const testSoundItem = mocks.menuTemplate.find((item: any) => item.label === 'Test Sound');
+      expect(testSoundItem).toBeDefined();
+      expect(() => testSoundItem.click()).not.toThrow();
+    });
+
+    it('Show Mute HUD checkbox is present and checked by default', () => {
+      const hudItem = mocks.menuTemplate.find((item: any) => item.label === 'Show Mute HUD');
+      expect(hudItem).toBeDefined();
+      expect(hudItem.type).toBe('checkbox');
+      expect(hudItem.checked).toBe(true);
+    });
+
+    it('Show Mute HUD click toggles state and calls callback', () => {
+      const handler = vi.fn();
+      tray.setOnShowMuteHudChanged(handler);
+      // Rebuild menu to pick up handler
+      tray.setState('idle');
+
+      const hudItem = mocks.menuTemplate.find((item: any) => item.label === 'Show Mute HUD');
+      hudItem.click();
+
+      expect(handler).toHaveBeenCalledWith(false);
+
+      // Click again to re-enable
+      const hudItem2 = mocks.menuTemplate.find((item: any) => item.label === 'Show Mute HUD');
+      hudItem2.click();
+      expect(handler).toHaveBeenCalledWith(true);
+    });
+
+    it('Show Mute HUD is safe to click without handler', () => {
+      const hudItem = mocks.menuTemplate.find((item: any) => item.label === 'Show Mute HUD');
+      expect(() => hudItem.click()).not.toThrow();
+    });
+
+    it('setShowMuteHud() updates menu checkbox state', () => {
+      tray.setShowMuteHud(false);
+      const hudItem = mocks.menuTemplate.find((item: any) => item.label === 'Show Mute HUD');
+      expect(hudItem.checked).toBe(false);
+    });
   });
 });

@@ -2,6 +2,9 @@ import { app, systemPreferences } from 'electron';
 import { MediaKeyManager } from './media-key';
 import { ExtensionBridge, MeetStatus } from './native-msg';
 import { MeetPodsTray, TrayState } from './tray';
+import { loadSettings, saveSettings } from './settings';
+import { showVolumePopup } from './volume-popup';
+import { showMuteHud, destroyMuteHud } from './mute-hud';
 
 const TAG = '[MeetPods:main]';
 
@@ -14,8 +17,11 @@ let enabled = true;
 let lastMeetStatus: MeetStatus = { active: false, muted: false, tabId: null };
 let audioInputActive = false;
 let mediaKeysActive = false;
+let showMuteHudEnabled = true;
+let pendingFeedback: { expectedMuted: boolean; timestamp: number; isAirpods: boolean } | null = null;
 
 const MEDIA_KEY_DEBOUNCE_MS = 500;
+const PENDING_FEEDBACK_TIMEOUT_MS = 5000;
 
 function shouldConsume(): boolean {
   return enabled && bridge?.isConnected && lastMeetStatus.active;
@@ -79,14 +85,17 @@ async function handleMediaKey(): Promise<void> {
   }
 
   console.log(`${TAG} handleMediaKey() — toggling mute`);
+  pendingFeedback = { expectedMuted: !lastMeetStatus.muted, timestamp: Date.now(), isAirpods: false };
   const result = await bridge.toggleMute();
   console.log(`${TAG} handleMediaKey() — result: success=${result.success}, muted=${result.muted}`);
 
   if (result.success && result.muted !== undefined) {
+    pendingFeedback = null;
     lastMeetStatus.muted = result.muted;
     updateTrayState();
     tray.flash();
     mediaKeys.playFeedbackSound(result.muted);
+    if (showMuteHudEnabled) showMuteHud(result.muted);
   }
 }
 
@@ -113,14 +122,18 @@ async function handleAirpodsMute(shouldBeMuted: boolean): Promise<void> {
   }
 
   console.log(`${TAG} handleAirpodsMute() — toggling mute (shouldBeMuted=${shouldBeMuted})`);
+  pendingFeedback = { expectedMuted: shouldBeMuted, timestamp: Date.now(), isAirpods: true };
   const result = await bridge.toggleMute();
   console.log(`${TAG} handleAirpodsMute() — result: success=${result.success}, muted=${result.muted}`);
 
   if (result.success && result.muted !== undefined) {
+    pendingFeedback = null;
     lastMeetStatus.muted = result.muted;
     updateTrayState();
     tray.flash();
-    mediaKeys.playFeedbackSound(result.muted);
+    // Delay: let audioaccessoryd finish routing transition after AirPods mute gesture
+    setTimeout(() => mediaKeys.playFeedbackSound(result.muted!), 300);
+    if (showMuteHudEnabled) showMuteHud(result.muted);
   }
 }
 
@@ -174,11 +187,59 @@ app.whenReady().then(async () => {
 
   bridge.on('meet-status', (status: MeetStatus) => {
     console.log(`${TAG} meet-status push: active=${status.active}, muted=${status.muted}`);
+    const prevMuted = lastMeetStatus.muted;
     lastMeetStatus = status;
     updateTrayState();
+
+    // Fallback: if toggleMute() response was lost, fire feedback from the push
+    if (pendingFeedback && status.muted !== prevMuted) {
+      const elapsed = Date.now() - pendingFeedback.timestamp;
+      if (elapsed < PENDING_FEEDBACK_TIMEOUT_MS) {
+        console.log(`${TAG} pendingFeedback fallback fired (elapsed=${elapsed}ms, muted=${status.muted})`);
+        const isAirpods = pendingFeedback.isAirpods;
+        pendingFeedback = null;
+        tray.flash();
+        if (isAirpods) {
+          setTimeout(() => mediaKeys.playFeedbackSound(status.muted), 300);
+        } else {
+          mediaKeys.playFeedbackSound(status.muted);
+        }
+        if (showMuteHudEnabled) showMuteHud(status.muted);
+      } else {
+        console.log(`${TAG} pendingFeedback expired (elapsed=${elapsed}ms) — ignoring`);
+        pendingFeedback = null;
+      }
+    }
   });
 
   mediaKeys = new MediaKeyManager();
+
+  // Load saved settings and apply them
+  const settings = loadSettings();
+  const savedVolume = Math.max(0, Math.min(1, settings.feedbackVolume));
+  mediaKeys.setFeedbackVolume(savedVolume);
+  tray.setVolume(savedVolume * 100);
+
+  showMuteHudEnabled = settings.showMuteHud;
+  tray.setShowMuteHud(showMuteHudEnabled);
+  tray.setOnShowMuteHudChanged((show) => {
+    showMuteHudEnabled = show;
+    saveSettings({ showMuteHud: show });
+  });
+
+  tray.setOnTestSound(() => {
+    console.log(`${TAG} Test Sound clicked — playing feedback sound directly`);
+    mediaKeys.playFeedbackSound(true);
+  });
+
+  tray.setOnVolumeClick(() => {
+    const currentSettings = loadSettings();
+    showVolumePopup(tray.getBounds(), currentSettings.feedbackVolume, (newVolume) => {
+      mediaKeys.setFeedbackVolume(newVolume);
+      tray.setVolume(newVolume * 100);
+      saveSettings({ feedbackVolume: newVolume });
+    });
+  });
 
   mediaKeys.on('media-key', async (event) => {
     console.log(`${TAG} media-key event received: ${event.key}`);
@@ -205,4 +266,5 @@ app.on('before-quit', () => {
   mediaKeys?.stop();
   bridge?.stop();
   tray?.destroy();
+  destroyMuteHud();
 });

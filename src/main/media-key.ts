@@ -11,6 +11,7 @@ interface NativeAddon {
   startAudioInput(): boolean;
   stopAudioInput(): void;
   playFeedbackSound(isMuted: boolean): void;
+  setFeedbackVolume(volume: number): void;
 }
 
 function loadAddon(): NativeAddon {
@@ -97,10 +98,21 @@ export class MediaKeyManager extends EventEmitter {
   }
 
   playFeedbackSound(isMuted: boolean): void {
+    console.log(`${TAG} playFeedbackSound(isMuted=${isMuted})`);
     try {
       this.addon.playFeedbackSound(isMuted);
     } catch (err) {
-      console.error(`${TAG} playFeedbackSound() failed:`, err);
+      console.error(`${TAG} playFeedbackSound() FAILED:`, err);
+    }
+  }
+
+  setFeedbackVolume(volume: number): void {
+    const clamped = Math.max(0, Math.min(1, volume));
+    try {
+      this.addon.setFeedbackVolume(clamped);
+      console.log(`${TAG} setFeedbackVolume(${Math.round(clamped * 100)}%)`);
+    } catch (err) {
+      console.error(`${TAG} setFeedbackVolume() failed:`, err);
     }
   }
 }

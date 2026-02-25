@@ -5,6 +5,7 @@
 # ── Install (production) ─────────────────────────
 
 install: dist  ## Build .dmg and install MeetPods as a macOS app
+	@for vol in /Volumes/MeetPods*; do [ -d "$$vol" ] && hdiutil detach "$$vol" 2>/dev/null; done; true
 	@open dist/MeetPods-*.dmg
 	@echo ""
 	@echo "\033[32m✓ DMG opened — drag MeetPods to Applications.\033[0m"

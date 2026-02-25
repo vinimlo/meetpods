@@ -47,6 +47,9 @@ export class ExtensionBridge extends EventEmitter {
         }
         client.isAlive = false;
         client.ping();
+        if (client.readyState === 1) {
+          client.send(JSON.stringify({ type: 'ping' }));
+        }
       }
     }, PING_INTERVAL_MS);
 
@@ -92,10 +95,14 @@ export class ExtensionBridge extends EventEmitter {
   private handleMessage(message: any, _sender?: any): void {
     switch (message.type) {
       case 'meet_status':
+        console.log(`${TAG} handleMessage(meet_status): active=${message.active}, muted=${message.muted}`);
         this.emit('meet-status', message as MeetStatus);
         break;
       case 'mute_toggled':
+        console.log(`${TAG} handleMessage(mute_toggled): success=${message.success}, muted=${message.muted}`);
         this.emit('mute-toggled', message as MuteResult);
+        break;
+      case 'pong':
         break;
     }
   }
@@ -110,7 +117,11 @@ export class ExtensionBridge extends EventEmitter {
     const requestId = randomUUID();
     console.log(`${TAG} ${sendType}() called (requestId=${requestId})`);
     return new Promise((resolve) => {
+      let resolved = false;
+
       const timeout = setTimeout(() => {
+        if (resolved) return;
+        resolved = true;
         console.log(`${TAG} ${sendType}() TIMED OUT (${REQUEST_TIMEOUT_MS}ms)`);
         this.removeListener(responseEvent, handler);
         resolve(fallback);
@@ -121,6 +132,8 @@ export class ExtensionBridge extends EventEmitter {
           this.once(responseEvent, handler);
           return;
         }
+        if (resolved) return;
+        resolved = true;
         clearTimeout(timeout);
         resolve(result);
       };
