@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "MeetPods",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Toggle Google Meet mute via AirPods media keys",
   "permissions": [
     "tabs",

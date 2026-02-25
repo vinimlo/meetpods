@@ -67,6 +67,9 @@ async function checkMeetViaBackground(): Promise<void> {
   }
 }
 
+// Set version from manifest
+document.getElementById('version-label')!.textContent = `v${chrome.runtime.getManifest().version}`;
+
 // Run checks — both go through background script, no direct WebSocket
 checkElectronConnection();
 checkMeetViaBackground();

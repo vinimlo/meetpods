@@ -11,6 +11,7 @@ describe('popup.ts', () => {
       'badge-meet': { className: '', textContent: '' },
       'dot-mic': { className: '', textContent: '' },
       'badge-mic': { className: '', textContent: '' },
+      'version-label': { className: '', textContent: '' },
     };
 
     globalThis.document = {
@@ -20,6 +21,7 @@ describe('popup.ts', () => {
     globalThis.chrome = {
       runtime: {
         sendMessage: vi.fn(),
+        getManifest: vi.fn(() => ({ version: '0.2.0' })),
       },
     };
   });
