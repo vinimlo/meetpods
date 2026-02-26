@@ -209,6 +209,35 @@
         background: rgba(93, 88, 106, 0.1);
       }
 
+      /* ── Clickable mic row ── */
+      .status-row.clickable {
+        cursor: pointer;
+        position: relative;
+      }
+
+      .status-row.clickable:hover {
+        border-color: rgba(244, 64, 104, 0.4);
+        box-shadow: 0 0 8px rgba(244, 64, 104, 0.08);
+      }
+
+      .status-row.clickable:active {
+        background: #1a1825;
+      }
+
+      .toggle-hint {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 8.5px;
+        font-weight: 500;
+        color: var(--text-dim);
+        letter-spacing: 0.04em;
+        opacity: 0;
+        transition: opacity 0.15s ease;
+      }
+
+      .status-row.clickable:hover .toggle-hint {
+        opacity: 1;
+      }
+
       /* ── Tabs Section ── */
       .tabs-section {
         padding: 0 14px 8px;
@@ -457,6 +486,7 @@
           <div class="status-dot dim" id="dot-mic"></div>
           Microphone
         </div>
+        <span class="toggle-hint" id="toggle-hint">click to toggle</span>
         <span class="status-badge inactive" id="badge-mic">--</span>
       </div>
     </div>

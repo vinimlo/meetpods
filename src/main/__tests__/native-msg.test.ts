@@ -195,8 +195,60 @@ describe('ExtensionBridge', () => {
     });
   });
 
-  describe('send()', () => {
-    it('broadcasts to all connected clients', async () => {
+  describe('activeMeetClient tracking', () => {
+    it('tracks client that reports active Meet session', async () => {
+      const setup = await createBridge();
+      bridge = setup.bridge;
+
+      const connP = waitForEvent(bridge, 'connected');
+      const client = await connectClient(setup.port);
+      await connP;
+
+      expect((bridge as any).activeMeetClient).toBeNull();
+
+      const statusP = waitForEvent(bridge, 'meet-status');
+      client.send(JSON.stringify({ type: 'meet_status', active: true, muted: false, tabId: 1 }));
+      await statusP;
+
+      expect((bridge as any).activeMeetClient).not.toBeNull();
+      await closeClient(client);
+    });
+
+    it('clears activeMeetClient when that client disconnects', async () => {
+      const setup = await createBridge();
+      bridge = setup.bridge;
+
+      const connP = waitForEvent(bridge, 'connected');
+      const client = await connectClient(setup.port);
+      await connP;
+
+      const statusP = waitForEvent(bridge, 'meet-status');
+      client.send(JSON.stringify({ type: 'meet_status', active: true, muted: false, tabId: 1 }));
+      await statusP;
+
+      expect((bridge as any).activeMeetClient).not.toBeNull();
+      await closeClient(client);
+      await new Promise((r) => setTimeout(r, 50));
+      expect((bridge as any).activeMeetClient).toBeNull();
+    });
+
+    it('fails fast on toggleMute when no active Meet client', async () => {
+      const setup = await createBridge();
+      bridge = setup.bridge;
+
+      const connP = waitForEvent(bridge, 'connected');
+      const client = await connectClient(setup.port);
+      await connP;
+
+      // No meet_status sent — activeMeetClient is null
+      const result = await bridge.toggleMute();
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('No active Meet client');
+
+      await closeClient(client);
+    });
+
+    it('sends toggle_mute only to the active Meet client', async () => {
       const setup = await createBridge();
       bridge = setup.bridge;
 
@@ -208,13 +260,28 @@ describe('ExtensionBridge', () => {
       const client2 = await connectClient(setup.port);
       await conn2P;
 
-      const msg1P = waitForMessage(client1);
-      const msg2P = waitForMessage(client2);
-      bridge.send({ type: 'test', data: 'hello' });
+      // Client2 reports active Meet session
+      const statusP = waitForEvent(bridge, 'meet-status');
+      client2.send(JSON.stringify({ type: 'meet_status', active: true, muted: false, tabId: 1 }));
+      await statusP;
 
-      const [msg1, msg2] = await Promise.all([msg1P, msg2P]);
-      expect(msg1.type).toBe('test');
-      expect(msg2.type).toBe('test');
+      // Set up message tracking
+      let client1Received = false;
+      client1.on('message', (data: any) => {
+        const msg = JSON.parse(data.toString());
+        if (msg.type === 'toggle_mute') client1Received = true;
+      });
+
+      client2.on('message', (data: any) => {
+        const msg = JSON.parse(data.toString());
+        if (msg.type === 'toggle_mute') {
+          client2.send(JSON.stringify({ type: 'mute_toggled', success: true, muted: true, requestId: msg.requestId }));
+        }
+      });
+
+      const result = await bridge.toggleMute();
+      expect(result.success).toBe(true);
+      expect(client1Received).toBe(false); // client1 should NOT have received the message
 
       await closeClient(client1);
       await closeClient(client2);
@@ -313,6 +380,12 @@ describe('ExtensionBridge', () => {
   });
 
   describe('toggleMute()', () => {
+    async function registerAsActive(client: WebSocket, bridge: any) {
+      const statusP = waitForEvent(bridge, 'meet-status');
+      client.send(JSON.stringify({ type: 'meet_status', active: true, muted: false, tabId: 1 }));
+      await statusP;
+    }
+
     it('resolves when client responds', async () => {
       const setup = await createBridge();
       bridge = setup.bridge;
@@ -320,6 +393,7 @@ describe('ExtensionBridge', () => {
       const connP = waitForEvent(bridge, 'connected');
       const client = await connectClient(setup.port);
       await connP;
+      await registerAsActive(client, bridge);
 
       client.on('message', (data: any) => {
         const msg = JSON.parse(data.toString());
@@ -349,7 +423,9 @@ describe('ExtensionBridge', () => {
       const connP = waitForEvent(bridge, 'connected');
       const client = await connectClient(setup.port);
       await connP;
+      await registerAsActive(client, bridge);
 
+      // Client does NOT respond to toggle_mute
       const result = await bridge.toggleMute();
       expect(result.success).toBe(false);
       expect(result.error).toBe('Timeout');
@@ -364,6 +440,7 @@ describe('ExtensionBridge', () => {
       const connP = waitForEvent(bridge, 'connected');
       const client = await connectClient(setup.port);
       await connP;
+      await registerAsActive(client, bridge);
 
       let capturedRequestId: string | null = null;
       client.on('message', (data: any) => {

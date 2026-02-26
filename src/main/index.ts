@@ -72,22 +72,36 @@ let lastMediaKeyHandledMs = 0;
 
 async function handleMediaKey(): Promise<void> {
   const now = Date.now();
-  if (now - lastMediaKeyHandledMs < MEDIA_KEY_DEBOUNCE_MS) return;
-  if (!enabled || !bridge.isConnected) return;
+  const elapsed = now - lastMediaKeyHandledMs;
+  console.log(
+    `${TAG} handleMediaKey() — entry (elapsed=${elapsed}ms, enabled=${enabled}, connected=${bridge?.isConnected}, meetActive=${lastMeetStatus.active}, meetMuted=${lastMeetStatus.muted})`,
+  );
+  if (elapsed < MEDIA_KEY_DEBOUNCE_MS) {
+    console.log(`${TAG} handleMediaKey() — DEBOUNCED (${elapsed}ms < ${MEDIA_KEY_DEBOUNCE_MS}ms)`);
+    return;
+  }
+  if (!enabled || !bridge.isConnected) {
+    console.log(`${TAG} handleMediaKey() — SKIPPED (enabled=${enabled}, connected=${bridge?.isConnected})`);
+    return;
+  }
 
   lastMediaKeyHandledMs = now;
 
   if (!lastMeetStatus.active) {
+    console.log(`${TAG} handleMediaKey() — meetActive=false, querying status...`);
     const status = await bridge.queryMeetStatus();
     lastMeetStatus = status;
     updateTrayState();
-    if (!status.active) return;
+    if (!status.active) {
+      console.log(`${TAG} handleMediaKey() — query returned active=false, aborting`);
+      return;
+    }
   }
 
   console.log(`${TAG} handleMediaKey() — toggling mute`);
   pendingFeedback = { expectedMuted: !lastMeetStatus.muted, timestamp: Date.now(), isAirpods: false };
   const result = await bridge.toggleMute();
-  console.log(`${TAG} handleMediaKey() — result: success=${result.success}, muted=${result.muted}`);
+  console.log(`${TAG} handleMediaKey() — result: success=${result.success}, muted=${result.muted}, error=${result.error}`);
 
   if (result.success && result.muted !== undefined) {
     pendingFeedback = null;
@@ -96,27 +110,43 @@ async function handleMediaKey(): Promise<void> {
     tray.flash();
     mediaKeys.playFeedbackSound(result.muted);
     if (showMuteHudEnabled) showMuteHud(result.muted);
+  } else {
+    console.log(`${TAG} handleMediaKey() — FAILED: no immediate feedback (success=${result.success}, muted=${result.muted}, error=${result.error}) — pendingFeedback kept for meet-status fallback`);
   }
 }
 
 async function handleAirpodsMute(shouldBeMuted: boolean): Promise<void> {
   const now = Date.now();
-  if (now - lastMediaKeyHandledMs < MEDIA_KEY_DEBOUNCE_MS) return;
-  if (!enabled || !bridge.isConnected) return;
+  const elapsed = now - lastMediaKeyHandledMs;
+  console.log(
+    `${TAG} handleAirpodsMute(shouldBeMuted=${shouldBeMuted}) — entry (elapsed=${elapsed}ms, enabled=${enabled}, connected=${bridge?.isConnected}, meetActive=${lastMeetStatus.active}, meetMuted=${lastMeetStatus.muted})`,
+  );
+  if (elapsed < MEDIA_KEY_DEBOUNCE_MS) {
+    console.log(`${TAG} handleAirpodsMute() — DEBOUNCED (${elapsed}ms < ${MEDIA_KEY_DEBOUNCE_MS}ms)`);
+    return;
+  }
+  if (!enabled || !bridge.isConnected) {
+    console.log(`${TAG} handleAirpodsMute() — SKIPPED (enabled=${enabled}, connected=${bridge?.isConnected})`);
+    return;
+  }
 
   lastMediaKeyHandledMs = now;
 
   if (!lastMeetStatus.active) {
+    console.log(`${TAG} handleAirpodsMute() — meetActive=false, querying status...`);
     const status = await bridge.queryMeetStatus();
     lastMeetStatus = status;
     updateTrayState();
-    if (!status.active) return;
+    if (!status.active) {
+      console.log(`${TAG} handleAirpodsMute() — query returned active=false, aborting`);
+      return;
+    }
   }
 
   // State-aware: only toggle if Meet's mute state differs from the desired state
   if (shouldBeMuted === lastMeetStatus.muted) {
     console.log(
-      `${TAG} handleAirpodsMute() — no-op (shouldBeMuted=${shouldBeMuted} matches current muted=${lastMeetStatus.muted})`,
+      `${TAG} handleAirpodsMute() — NO-OP (shouldBeMuted=${shouldBeMuted} matches current muted=${lastMeetStatus.muted})`,
     );
     return;
   }
@@ -124,7 +154,7 @@ async function handleAirpodsMute(shouldBeMuted: boolean): Promise<void> {
   console.log(`${TAG} handleAirpodsMute() — toggling mute (shouldBeMuted=${shouldBeMuted})`);
   pendingFeedback = { expectedMuted: shouldBeMuted, timestamp: Date.now(), isAirpods: true };
   const result = await bridge.toggleMute();
-  console.log(`${TAG} handleAirpodsMute() — result: success=${result.success}, muted=${result.muted}`);
+  console.log(`${TAG} handleAirpodsMute() — result: success=${result.success}, muted=${result.muted}, error=${result.error}`);
 
   if (result.success && result.muted !== undefined) {
     pendingFeedback = null;
@@ -134,6 +164,8 @@ async function handleAirpodsMute(shouldBeMuted: boolean): Promise<void> {
     // Delay: let audioaccessoryd finish routing transition after AirPods mute gesture
     setTimeout(() => mediaKeys.playFeedbackSound(result.muted!), 300);
     if (showMuteHudEnabled) showMuteHud(result.muted);
+  } else {
+    console.log(`${TAG} handleAirpodsMute() — FAILED: no immediate feedback (success=${result.success}, muted=${result.muted}, error=${result.error}) — pendingFeedback kept for meet-status fallback`);
   }
 }
 

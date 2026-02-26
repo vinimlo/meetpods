@@ -14,6 +14,8 @@ const dotMeet = document.getElementById('dot-meet')!;
 const badgeMeet = document.getElementById('badge-meet')!;
 const dotMic = document.getElementById('dot-mic')!;
 const badgeMic = document.getElementById('badge-mic')!;
+const rowMic = document.getElementById('row-mic')!;
+const toggleHint = document.getElementById('toggle-hint')!;
 const tabsSection = document.getElementById('tabs-section')!;
 const tabsCount = document.getElementById('tabs-count')!;
 const tabsList = document.getElementById('tabs-list')!;
@@ -30,7 +32,11 @@ function setElectronStatus(connected: boolean): void {
   }
 }
 
+let callActive = false;
+
 function setMeetStatus(active: boolean, muted: boolean): void {
+  callActive = active;
+
   if (!active) {
     dotMeet.className = 'status-dot dim';
     badgeMeet.className = 'status-badge inactive';
@@ -38,12 +44,16 @@ function setMeetStatus(active: boolean, muted: boolean): void {
     dotMic.className = 'status-dot dim';
     badgeMic.className = 'status-badge inactive';
     badgeMic.textContent = '--';
+    rowMic.classList.remove('clickable');
+    toggleHint.style.display = 'none';
     return;
   }
 
   dotMeet.className = 'status-dot green';
   badgeMeet.className = 'status-badge connected';
   badgeMeet.textContent = 'In call';
+  rowMic.classList.add('clickable');
+  toggleHint.style.display = '';
 
   if (muted) {
     dotMic.className = 'status-dot red';
@@ -150,6 +160,21 @@ async function loadTabList(): Promise<void> {
 
 // Set version from manifest
 document.getElementById('version-label')!.textContent = `v${chrome.runtime.getManifest().version}`;
+
+// Mute toggle via mic row click
+rowMic.addEventListener('click', async () => {
+  if (!callActive) return;
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'toggle_mute' });
+    if (response?.success) {
+      setMeetStatus(true, response.muted);
+    }
+    // Refresh tab list to sync state
+    loadTabList();
+  } catch {
+    // Background might not respond
+  }
+});
 
 // Run checks — both go through background script, no direct WebSocket
 checkElectronConnection();

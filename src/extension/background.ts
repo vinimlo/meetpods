@@ -114,10 +114,23 @@ function getBestMeetTab(): number | null {
 }
 
 function getTargetTab(): number | null {
+  console.log(
+    `${TAG} getTargetTab() — meetTabs=${meetTabs.size}, pinnedTabId=${pinnedTabId}, pinnedManually=${pinnedManually}`,
+  );
+  for (const [tabId, info] of meetTabs) {
+    console.log(
+      `${TAG}   tab ${tabId}: active=${info.active}, muted=${info.muted}, title="${info.title}"`,
+    );
+  }
+
   // 1. Pinned tab — if it exists and has an active call
   if (pinnedTabId !== null && meetTabs.has(pinnedTabId)) {
     const info = meetTabs.get(pinnedTabId)!;
-    if (info.active) return pinnedTabId;
+    if (info.active) {
+      console.log(`${TAG} getTargetTab() → pinned tab ${pinnedTabId} (active call)`);
+      return pinnedTabId;
+    }
+    console.log(`${TAG} getTargetTab() — pinned tab ${pinnedTabId} exists but call not active, falling through`);
     // Pinned tab exists but call ended — if manually pinned, keep pin but fall through
     // (auto-unpin happens in status_changed handler; this handles edge cases)
   }
@@ -132,6 +145,7 @@ function getTargetTab(): number | null {
     // Exactly one active call — auto-pin it
     pinnedTabId = activeTabs[0][0];
     pinnedManually = false;
+    console.log(`${TAG} getTargetTab() → auto-pinned tab ${pinnedTabId} (only active call)`);
     return pinnedTabId;
   }
 
@@ -147,11 +161,14 @@ function getTargetTab(): number | null {
     }
     pinnedTabId = best;
     pinnedManually = false;
+    console.log(`${TAG} getTargetTab() → best of ${activeTabs.length} active tabs: ${pinnedTabId}`);
     return pinnedTabId;
   }
 
   // 3. No active calls — fall back to legacy behavior (most recently focused Meet tab)
-  return getBestMeetTab();
+  const fallback = getBestMeetTab();
+  console.log(`${TAG} getTargetTab() → no active calls, fallback to best Meet tab: ${fallback}`);
+  return fallback;
 }
 
 async function sendToMeetTab(
@@ -177,8 +194,42 @@ function queryMeetStatus() {
   return sendToMeetTab('queryMeetStatus', 'get_status', { active: false, muted: false, tabId: null });
 }
 
-function toggleMuteOnMeet() {
-  return sendToMeetTab('toggleMuteOnMeet', 'toggle_mute', { success: false, error: 'No Meet tab found' });
+async function toggleMuteOnMeet() {
+  const tabId = getTargetTab();
+  console.log(`${TAG} toggleMuteOnMeet() — targetTab=${tabId}`);
+  if (!tabId) return { success: false, error: 'No Meet tab found' };
+
+  // Google Meet's Wiz framework ignores synthetic clicks on background tabs.
+  // Briefly focus the Meet tab so .click() works, then restore the previous tab.
+  let previousTabId: number | null = null;
+  try {
+    const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    if (activeTab?.id && activeTab.id !== tabId) {
+      previousTabId = activeTab.id;
+      console.log(`${TAG} toggleMuteOnMeet() — focusing Meet tab ${tabId} (was: ${previousTabId})`);
+      await chrome.tabs.update(tabId, { active: true });
+      // Small delay for the tab to become visible so Meet processes the click
+      await new Promise((r) => setTimeout(r, 50));
+    }
+  } catch (err) {
+    console.log(`${TAG} toggleMuteOnMeet() — tab focus failed: ${(err as Error).message}`);
+  }
+
+  try {
+    const response = await chrome.tabs.sendMessage(tabId, { type: 'toggle_mute' });
+    console.log(`${TAG} toggleMuteOnMeet() — tab ${tabId} responded:`, response);
+    return { ...response, tabId };
+  } catch (err) {
+    console.log(`${TAG} toggleMuteOnMeet() — tab ${tabId} FAILED: ${(err as Error).message}`);
+    meetTabs.delete(tabId);
+    return { success: false, error: 'Content script unreachable' };
+  } finally {
+    // Restore the previously active tab
+    if (previousTabId !== null) {
+      console.log(`${TAG} toggleMuteOnMeet() — restoring previous tab ${previousTabId}`);
+      chrome.tabs.update(previousTabId, { active: true }).catch(() => {});
+    }
+  }
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -248,6 +299,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       clearPin();
       sendResponse({ success: true, pinnedTabId: null });
       return false;
+    case 'toggle_mute':
+      toggleMuteOnMeet().then(sendResponse);
+      return true;
   }
 });
 
@@ -270,8 +324,15 @@ function connectWS(): void {
           break;
         }
         case 'toggle_mute': {
+          console.log(`${TAG} WS toggle_mute — requestId=${message.requestId}, ws.readyState=${ws!.readyState}`);
           const result = await toggleMuteOnMeet();
-          ws!.send(JSON.stringify({ type: 'mute_toggled', ...result, requestId: message.requestId }));
+          console.log(`${TAG} WS toggle_mute — result:`, JSON.stringify(result));
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'mute_toggled', ...result, requestId: message.requestId }));
+            console.log(`${TAG} WS toggle_mute — response sent`);
+          } else {
+            console.log(`${TAG} WS toggle_mute — CANNOT RESPOND (ws=${ws ? 'exists' : 'null'}, readyState=${ws?.readyState})`);
+          }
           break;
         }
         case 'ping':

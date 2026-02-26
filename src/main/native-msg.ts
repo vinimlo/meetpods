@@ -20,8 +20,10 @@ export interface MuteResult {
 export class ExtensionBridge extends EventEmitter {
   private wss: any = null;
   private clients: Set<any> = new Set();
+  private activeMeetClient: any = null;
   private port: number;
   private pingInterval: ReturnType<typeof setInterval> | null = null;
+  private nextClientId = 1;
 
   constructor(port: number = 18432) {
     super();
@@ -41,7 +43,7 @@ export class ExtensionBridge extends EventEmitter {
     this.pingInterval = setInterval(() => {
       for (const client of this.clients) {
         if (client.isAlive === false) {
-          console.log(`${TAG} Client unresponsive — terminating`);
+          console.log(`${TAG} [${client.clientId}] unresponsive — terminating`);
           client.terminate();
           continue;
         }
@@ -55,8 +57,9 @@ export class ExtensionBridge extends EventEmitter {
 
     this.wss.on('connection', (ws: any) => {
       ws.isAlive = true;
+      ws.clientId = `c${this.nextClientId++}`;
       this.clients.add(ws);
-      console.log(`${TAG} Client connected (total: ${this.clients.size})`);
+      console.log(`${TAG} [${ws.clientId}] connected (total: ${this.clients.size})`);
       this.emit('connected');
 
       ws.on('pong', () => {
@@ -66,16 +69,22 @@ export class ExtensionBridge extends EventEmitter {
       ws.on('message', (data: Buffer) => {
         try {
           const message = JSON.parse(data.toString());
-          console.log(`${TAG} Received message: ${message.type}`);
+          if (message.type !== 'pong') {
+            console.log(`${TAG} [${ws.clientId}] recv: ${message.type}`);
+          }
           this.handleMessage(message, ws);
         } catch (err) {
-          console.error(`${TAG} Invalid message from extension:`, err);
+          console.error(`${TAG} [${ws.clientId}] invalid message:`, err);
         }
       });
 
       ws.on('close', () => {
         this.clients.delete(ws);
-        console.log(`${TAG} Client disconnected (remaining: ${this.clients.size})`);
+        if (ws === this.activeMeetClient) {
+          console.log(`${TAG} [${ws.clientId}] was active Meet client — clearing`);
+          this.activeMeetClient = null;
+        }
+        console.log(`${TAG} [${ws.clientId}] disconnected (remaining: ${this.clients.size})`);
         if (this.clients.size === 0) {
           this.emit('disconnected');
         }
@@ -83,23 +92,25 @@ export class ExtensionBridge extends EventEmitter {
     });
   }
 
-  private broadcast(message: object, excludeSender?: any): void {
-    const data = JSON.stringify(message);
-    for (const client of this.clients) {
-      if (client !== excludeSender && client.readyState === 1) {
-        client.send(data);
-      }
-    }
-  }
-
-  private handleMessage(message: any, _sender?: any): void {
+  private handleMessage(message: any, sender?: any): void {
     switch (message.type) {
       case 'meet_status':
-        console.log(`${TAG} handleMessage(meet_status): active=${message.active}, muted=${message.muted}`);
+        console.log(
+          `${TAG} [${sender?.clientId}] meet_status: active=${message.active}, muted=${message.muted}`,
+        );
+        // Track which client has the active Meet session
+        if (message.active && sender) {
+          if (this.activeMeetClient !== sender) {
+            console.log(`${TAG} Active Meet client: ${sender.clientId}`);
+          }
+          this.activeMeetClient = sender;
+        }
         this.emit('meet-status', message as MeetStatus);
         break;
       case 'mute_toggled':
-        console.log(`${TAG} handleMessage(mute_toggled): success=${message.success}, muted=${message.muted}`);
+        console.log(
+          `${TAG} [${sender?.clientId}] mute_toggled: success=${message.success}, muted=${message.muted}`,
+        );
         this.emit('mute-toggled', message as MuteResult);
         break;
       case 'pong':
@@ -107,15 +118,38 @@ export class ExtensionBridge extends EventEmitter {
     }
   }
 
-  send(message: object): void {
-    const msg = message as any;
-    console.log(`${TAG} Sending "${msg.type}" to ${this.clients.size} client(s)`);
-    this.broadcast(message);
+  /** Send a message to a specific client, or broadcast if no target. */
+  private sendTo(message: object, target?: any): void {
+    const data = JSON.stringify(message);
+    if (target && target.readyState === 1) {
+      console.log(`${TAG} send → ${target.clientId}: ${(message as any).type}`);
+      target.send(data);
+    } else {
+      console.log(`${TAG} broadcast → ${this.clients.size} client(s): ${(message as any).type}`);
+      for (const client of this.clients) {
+        if (client.readyState === 1) {
+          client.send(data);
+        }
+      }
+    }
   }
 
-  private request<T>(sendType: string, responseEvent: string, fallback: T): Promise<T> {
+  /**
+   * Send a request and wait for a response event.
+   * If targetClient is provided and connected, sends only to it.
+   * Otherwise broadcasts to all clients.
+   */
+  private request<T>(
+    sendType: string,
+    responseEvent: string,
+    fallback: T,
+    targetClient?: any,
+  ): Promise<T> {
     const requestId = randomUUID();
-    console.log(`${TAG} ${sendType}() called (requestId=${requestId})`);
+    const target = targetClient?.readyState === 1 ? targetClient : null;
+    console.log(
+      `${TAG} ${sendType}() called (requestId=${requestId.slice(0, 8)}, target=${target?.clientId ?? 'broadcast'})`,
+    );
     return new Promise((resolve) => {
       let resolved = false;
 
@@ -139,16 +173,26 @@ export class ExtensionBridge extends EventEmitter {
       };
       this.once(responseEvent, handler);
 
-      this.send({ type: sendType, requestId });
+      this.sendTo({ type: sendType, requestId }, target);
     });
   }
 
   queryMeetStatus(): Promise<MeetStatus> {
-    return this.request('query_meet_status', 'meet-status', { active: false, muted: false, tabId: null });
+    // Target the known Meet client if available; broadcast to discover if not
+    return this.request(
+      'query_meet_status',
+      'meet-status',
+      { active: false, muted: false, tabId: null },
+      this.activeMeetClient,
+    );
   }
 
   toggleMute(): Promise<MuteResult> {
-    return this.request('toggle_mute', 'mute-toggled', { success: false, error: 'Timeout' });
+    if (!this.activeMeetClient || this.activeMeetClient.readyState !== 1) {
+      console.log(`${TAG} toggleMute() — no active Meet client, failing fast`);
+      return Promise.resolve({ success: false, error: 'No active Meet client' });
+    }
+    return this.request('toggle_mute', 'mute-toggled', { success: false, error: 'Timeout' }, this.activeMeetClient);
   }
 
   get isConnected(): boolean {
@@ -166,5 +210,6 @@ export class ExtensionBridge extends EventEmitter {
       this.wss = null;
     }
     this.clients.clear();
+    this.activeMeetClient = null;
   }
 }

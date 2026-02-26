@@ -51,12 +51,14 @@ function checkCallStatus(): void {
 }
 
 function toggleMute(): Promise<{ success: boolean; muted?: boolean; error?: string }> {
+  console.log(`${TAG} toggleMute() — called (isInCall=${isInCall}, isMuted=${isMuted}, isToggling=${isToggling})`);
   muteButton = findMuteButton();
   if (!muteButton) {
     console.log(`${TAG} toggleMute() — mute button NOT FOUND`);
+    console.log(`${TAG} toggleMute() — DOM check: ${MUTE_BUTTON_SELECTORS.map((s) => `${s}=${!!document.querySelector(s)}`).join(', ')}`);
     return Promise.resolve({ success: false, error: 'Mute button not found' });
   }
-  console.log(`${TAG} toggleMute() — clicking mute button`);
+  console.log(`${TAG} toggleMute() — clicking mute button (data-is-muted=${muteButton.getAttribute('data-is-muted')}, aria-label=${muteButton.getAttribute('aria-label')})`);
   isToggling = true;
   muteButton.click();
   return new Promise((resolve) => {
