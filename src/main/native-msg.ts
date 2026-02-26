@@ -95,9 +95,7 @@ export class ExtensionBridge extends EventEmitter {
   private handleMessage(message: any, sender?: any): void {
     switch (message.type) {
       case 'meet_status':
-        console.log(
-          `${TAG} [${sender?.clientId}] meet_status: active=${message.active}, muted=${message.muted}`,
-        );
+        console.log(`${TAG} [${sender?.clientId}] meet_status: active=${message.active}, muted=${message.muted}`);
         // Track which client has the active Meet session
         if (message.active && sender) {
           if (this.activeMeetClient !== sender) {
@@ -108,9 +106,7 @@ export class ExtensionBridge extends EventEmitter {
         this.emit('meet-status', message as MeetStatus);
         break;
       case 'mute_toggled':
-        console.log(
-          `${TAG} [${sender?.clientId}] mute_toggled: success=${message.success}, muted=${message.muted}`,
-        );
+        console.log(`${TAG} [${sender?.clientId}] mute_toggled: success=${message.success}, muted=${message.muted}`);
         this.emit('mute-toggled', message as MuteResult);
         break;
       case 'pong':
@@ -139,12 +135,7 @@ export class ExtensionBridge extends EventEmitter {
    * If targetClient is provided and connected, sends only to it.
    * Otherwise broadcasts to all clients.
    */
-  private request<T>(
-    sendType: string,
-    responseEvent: string,
-    fallback: T,
-    targetClient?: any,
-  ): Promise<T> {
+  private request<T>(sendType: string, responseEvent: string, fallback: T, targetClient?: any): Promise<T> {
     const requestId = randomUUID();
     const target = targetClient?.readyState === 1 ? targetClient : null;
     console.log(

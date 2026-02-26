@@ -118,9 +118,7 @@ function getTargetTab(): number | null {
     `${TAG} getTargetTab() — meetTabs=${meetTabs.size}, pinnedTabId=${pinnedTabId}, pinnedManually=${pinnedManually}`,
   );
   for (const [tabId, info] of meetTabs) {
-    console.log(
-      `${TAG}   tab ${tabId}: active=${info.active}, muted=${info.muted}, title="${info.title}"`,
-    );
+    console.log(`${TAG}   tab ${tabId}: active=${info.active}, muted=${info.muted}, title="${info.title}"`);
   }
 
   // 1. Pinned tab — if it exists and has an active call
@@ -331,7 +329,9 @@ function connectWS(): void {
             ws.send(JSON.stringify({ type: 'mute_toggled', ...result, requestId: message.requestId }));
             console.log(`${TAG} WS toggle_mute — response sent`);
           } else {
-            console.log(`${TAG} WS toggle_mute — CANNOT RESPOND (ws=${ws ? 'exists' : 'null'}, readyState=${ws?.readyState})`);
+            console.log(
+              `${TAG} WS toggle_mute — CANNOT RESPOND (ws=${ws ? 'exists' : 'null'}, readyState=${ws?.readyState})`,
+            );
           }
           break;
         }

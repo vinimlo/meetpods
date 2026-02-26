@@ -101,7 +101,9 @@ async function handleMediaKey(): Promise<void> {
   console.log(`${TAG} handleMediaKey() — toggling mute`);
   pendingFeedback = { expectedMuted: !lastMeetStatus.muted, timestamp: Date.now(), isAirpods: false };
   const result = await bridge.toggleMute();
-  console.log(`${TAG} handleMediaKey() — result: success=${result.success}, muted=${result.muted}, error=${result.error}`);
+  console.log(
+    `${TAG} handleMediaKey() — result: success=${result.success}, muted=${result.muted}, error=${result.error}`,
+  );
 
   if (result.success && result.muted !== undefined) {
     pendingFeedback = null;
@@ -111,7 +113,9 @@ async function handleMediaKey(): Promise<void> {
     mediaKeys.playFeedbackSound(result.muted);
     if (showMuteHudEnabled) showMuteHud(result.muted);
   } else {
-    console.log(`${TAG} handleMediaKey() — FAILED: no immediate feedback (success=${result.success}, muted=${result.muted}, error=${result.error}) — pendingFeedback kept for meet-status fallback`);
+    console.log(
+      `${TAG} handleMediaKey() — FAILED: no immediate feedback (success=${result.success}, muted=${result.muted}, error=${result.error}) — pendingFeedback kept for meet-status fallback`,
+    );
   }
 }
 
@@ -154,7 +158,9 @@ async function handleAirpodsMute(shouldBeMuted: boolean): Promise<void> {
   console.log(`${TAG} handleAirpodsMute() — toggling mute (shouldBeMuted=${shouldBeMuted})`);
   pendingFeedback = { expectedMuted: shouldBeMuted, timestamp: Date.now(), isAirpods: true };
   const result = await bridge.toggleMute();
-  console.log(`${TAG} handleAirpodsMute() — result: success=${result.success}, muted=${result.muted}, error=${result.error}`);
+  console.log(
+    `${TAG} handleAirpodsMute() — result: success=${result.success}, muted=${result.muted}, error=${result.error}`,
+  );
 
   if (result.success && result.muted !== undefined) {
     pendingFeedback = null;
@@ -165,7 +171,9 @@ async function handleAirpodsMute(shouldBeMuted: boolean): Promise<void> {
     setTimeout(() => mediaKeys.playFeedbackSound(result.muted!), 300);
     if (showMuteHudEnabled) showMuteHud(result.muted);
   } else {
-    console.log(`${TAG} handleAirpodsMute() — FAILED: no immediate feedback (success=${result.success}, muted=${result.muted}, error=${result.error}) — pendingFeedback kept for meet-status fallback`);
+    console.log(
+      `${TAG} handleAirpodsMute() — FAILED: no immediate feedback (success=${result.success}, muted=${result.muted}, error=${result.error}) — pendingFeedback kept for meet-status fallback`,
+    );
   }
 }
 

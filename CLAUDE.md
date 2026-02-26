@@ -200,14 +200,14 @@ Suppressing `pushStatusChange()` during the toggle window (Section 13) introduce
 setTimeout(() => {
   checkCallStatus();
   isToggling = false;
-  resolve({ success: true, muted: isMuted });   // sendResponse fires here (port closes)
+  resolve({ success: true, muted: isMuted }); // sendResponse fires here (port closes)
   // Deferred push: safe because sendResponse already closed its port
-  chrome.runtime.sendMessage({ type: 'status_changed', active: isInCall, muted: isMuted })
-    .catch(() => {});
+  chrome.runtime.sendMessage({ type: 'status_changed', active: isInCall, muted: isMuted }).catch(() => {});
 }, POST_CLICK_DELAY_MS);
 ```
 
 Key points:
+
 - `resolve()` triggers `sendResponse()` which closes the message port
 - The subsequent `sendMessage()` opens a **new, independent** port — no conflict
 - This ensures Electron receives both the toggle result (via `sendResponse`) AND the status update (via `sendMessage`)

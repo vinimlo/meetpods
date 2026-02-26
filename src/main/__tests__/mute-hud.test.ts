@@ -44,9 +44,7 @@ import { screen } from 'electron';
 
 /** Helper: find the ready-to-show handler registered via winInst.once */
 function getReadyHandler(): (() => void) | undefined {
-  const call = mocks.winInst.once.mock.calls.find(
-    (c: any[]) => c[0] === 'ready-to-show',
-  );
+  const call = mocks.winInst.once.mock.calls.find((c: any[]) => c[0] === 'ready-to-show');
   return call?.[1];
 }
 
@@ -149,9 +147,7 @@ describe('mute-hud', () => {
 
     it('registers closed handler that clears state', () => {
       showMuteHud(true);
-      const closedHandler = mocks.winInst.on.mock.calls.find(
-        (c: any[]) => c[0] === 'closed',
-      )![1];
+      const closedHandler = mocks.winInst.on.mock.calls.find((c: any[]) => c[0] === 'closed')![1];
 
       // After 'closed', next showMuteHud should create a new window
       closedHandler();

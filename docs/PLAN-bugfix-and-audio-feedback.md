@@ -14,11 +14,11 @@ O usuario esta em chamada com microfone aberto. A cada intervalo de tempo (< 1 m
 
 O MeetPods tem **4 fontes de eventos** que disparam mute toggle, todas convergindo para `fireMediaKeyCallback(true)` no addon nativo:
 
-| Fonte | Arquivo | Linha |
-|-------|---------|-------|
-| CGEventTap (media key fisico) | `media_key_tap.cc` | 124-126 |
-| NSEvent global monitor (fallback) | `media_key_tap.cc` | 389-406 |
-| AVAudioApplication handler (AirPods) | `media_key_tap.cc` | 418-426 |
+| Fonte                                  | Arquivo            | Linha          |
+| -------------------------------------- | ------------------ | -------------- |
+| CGEventTap (media key fisico)          | `media_key_tap.cc` | 124-126        |
+| NSEvent global monitor (fallback)      | `media_key_tap.cc` | 389-406        |
+| AVAudioApplication handler (AirPods)   | `media_key_tap.cc` | 418-426        |
 | Darwin notification (AirPods fallback) | `media_key_tap.cc` | 81-91, 438-445 |
 
 **Hipotese principal: Darwin notification `com.apple.audioaccessoryd.MuteState` dispara espuriamente.**
@@ -80,6 +80,7 @@ function setMute(targetMuted: boolean): Promise<{ success: boolean; muted?: bool
 ```
 
 Adicionar handler no `chrome.runtime.onMessage`:
+
 ```typescript
 if (message.type === 'set_mute') {
   setMute(message.muted).then(sendResponse);
@@ -92,6 +93,7 @@ if (message.type === 'set_mute') {
 Arquivo: `src/extension/background.ts`
 
 Adicionar novo case no `ws.onmessage`:
+
 ```typescript
 case 'set_mute': {
   const result = await sendToMeetTab('setMute', 'set_mute', { success: false, error: 'No Meet tab' });
@@ -102,6 +104,7 @@ case 'set_mute': {
 ```
 
 E na funcao `sendToMeetTab`, passar dados extras:
+
 ```typescript
 // Para set_mute, incluir o campo muted na mensagem
 case 'set_mute':
@@ -143,6 +146,7 @@ setMute(muted: boolean): Promise<MuteResult> {
 ```
 
 E adicionar o handler de mensagem:
+
 ```typescript
 case 'mute_set':
   this.emit('mute-set', message as MuteResult);
@@ -173,6 +177,7 @@ static void fireAirpodsMuteCallback(bool shouldBeMuted) {
 ```
 
 Atualizar o AVAudioApplication handler:
+
 ```objc
 [audioApp setInputMuteStateChangeHandler:^BOOL(BOOL inputShouldBeMuted) {
     if (!isDuplicateAirpodsMute(kMuteDedupWindowMs, "AVAudioApplication")) {
@@ -183,6 +188,7 @@ Atualizar o AVAudioApplication handler:
 ```
 
 **Nota sobre Darwin notification**: A Darwin notification NAO carrega payload (nao sabemos se e mute ou unmute). Opcoes:
+
 - **Opcao A (recomendada)**: Quando AVAudioApplication esta registrado com sucesso (macOS 14+), REMOVER o observer Darwin. Ele so serve como fallback para macOS < 14. Isso elimina a fonte principal de disparos espurios.
 - **Opcao B**: Manter o Darwin apenas se AVAudioApplication falhou no registro. Adicionar flag `avAudioHandlerActive` para controlar.
 
@@ -235,11 +241,13 @@ async function handleAirpodsMute(shouldBeMuted: boolean): Promise<void> {
 Arquivo: `src/native/media_key_tap.cc`
 
 Adicionar flag:
+
 ```cpp
 static bool avAudioHandlerActive = false;
 ```
 
 No registro do AVAudioApplication (se retornar ok):
+
 ```cpp
 if (ok) {
     avAudioHandlerActive = true;
@@ -248,6 +256,7 @@ if (ok) {
 ```
 
 No Darwin notification callback:
+
 ```cpp
 static void darwinMuteNotificationCallback(...) {
     // Se AVAudioApplication esta ativo, ignorar Darwin (redundante e menos preciso)
@@ -268,12 +277,14 @@ Antes de aplicar a correcao completa, adicionar logging temporal para confirmar 
 Arquivo: `src/native/media_key_tap.cc`
 
 No Darwin notification callback, logar timestamp detalhado:
+
 ```cpp
 fprintf(stderr, "[MeetPods:native] Darwin notification fired at %llu (delta from last: %llums)\n",
         currentTimeMs(), currentTimeMs() - lastAirpodsMuteTimeMs.load());
 ```
 
 No AVAudioApplication handler:
+
 ```cpp
 fprintf(stderr, "[MeetPods:native] AVAudioApplication fired: inputShouldBeMuted=%d at %llu\n",
         inputShouldBeMuted, currentTimeMs());
@@ -289,23 +300,23 @@ fprintf(stderr, "[MeetPods:native] AVAudioApplication fired: inputShouldBeMuted=
 
 ### Arquivos a modificar (Bug)
 
-| Arquivo | Mudanca |
-|---------|---------|
+| Arquivo                       | Mudanca                                                                                |
+| ----------------------------- | -------------------------------------------------------------------------------------- |
 | `src/native/media_key_tap.cc` | Flag `avAudioHandlerActive`, condicionar Darwin, novo callback `airpods_mute`, logging |
-| `src/main/media-key.ts` | Emitir evento `airpods_mute` separado do `play_pause` |
-| `src/main/index.ts` | Handler `handleAirpodsMute()`, usar `bridge.setMute()` |
-| `src/main/native-msg.ts` | Metodo `setMute(muted)`, handler `mute-set` |
-| `src/extension/background.ts` | Rota `set_mute` no WebSocket, propagacao para content script |
-| `src/extension/content.ts` | Funcao `setMute(targetMuted)`, handler `set_mute` |
+| `src/main/media-key.ts`       | Emitir evento `airpods_mute` separado do `play_pause`                                  |
+| `src/main/index.ts`           | Handler `handleAirpodsMute()`, usar `bridge.setMute()`                                 |
+| `src/main/native-msg.ts`      | Metodo `setMute(muted)`, handler `mute-set`                                            |
+| `src/extension/background.ts` | Rota `set_mute` no WebSocket, propagacao para content script                           |
+| `src/extension/content.ts`    | Funcao `setMute(targetMuted)`, handler `set_mute`                                      |
 
 ### Testes a atualizar
 
-| Arquivo de teste | O que atualizar |
-|-----------------|-----------------|
-| `src/main/__tests__/index.test.ts` | Testes para `handleAirpodsMute`, skip quando ja no estado desejado |
-| `src/__tests__/extension/content.test.ts` | Testes para `setMute()`: ja no estado, estado diferente, botao nao encontrado |
-| `src/__tests__/extension/background.test.ts` | Testes para rota `set_mute` |
-| `src/main/__tests__/native-msg.test.ts` | Testes para `setMute()` e evento `mute-set` |
+| Arquivo de teste                             | O que atualizar                                                               |
+| -------------------------------------------- | ----------------------------------------------------------------------------- |
+| `src/main/__tests__/index.test.ts`           | Testes para `handleAirpodsMute`, skip quando ja no estado desejado            |
+| `src/__tests__/extension/content.test.ts`    | Testes para `setMute()`: ja no estado, estado diferente, botao nao encontrado |
+| `src/__tests__/extension/background.test.ts` | Testes para rota `set_mute`                                                   |
+| `src/main/__tests__/native-msg.test.ts`      | Testes para `setMute()` e evento `mute-set`                                   |
 
 ---
 
@@ -318,6 +329,7 @@ Tocar sons distintos ao mutar e desmutar, para que o usuario saiba o estado sem 
 ### Abordagem Escolhida: Tons programaticos via AudioToolbox (nativo)
 
 **Por que esta abordagem:**
+
 - AudioToolbox ja esta linkado no addon nativo (binding.gyp)
 - Sem dependencia de arquivos de som externos
 - Latencia minima (gerado em memoria)
@@ -325,6 +337,7 @@ Tocar sons distintos ao mutar e desmutar, para que o usuario saiba o estado sem 
 - Padrao similar ao AirPods Pro: tom ascendente = ativado, tom descendente = desativado
 
 **Alternativa descartada:**
+
 - `shell.beep()` do Electron: som unico, sem diferenciacao mute/unmute
 - Arquivos WAV bundled: adiciona complexidade de build e tamanho do app
 - `NSSound` com sons do sistema: limitado, sem controle de tom
@@ -375,6 +388,7 @@ static void playTone(float frequency, float durationMs, float volume = 0.3f) {
 ```
 
 **Padrao sonoro:**
+
 - **Unmute (mic ON)**: Tom unico ascendente — 880Hz por 100ms (tom agudo, confiante)
 - **Mute (mic OFF)**: Dois tons curtos descendentes — 440Hz por 80ms + pausa 50ms + 330Hz por 80ms (tom grave duplo, "desligando")
 
@@ -407,6 +421,7 @@ Napi::Value PlayFeedbackSound(const Napi::CallbackInfo& info) {
 ```
 
 Registrar no `Init`:
+
 ```cpp
 exports.Set("playFeedbackSound", Napi::Function::New(env, PlayFeedbackSound));
 ```
@@ -414,6 +429,7 @@ exports.Set("playFeedbackSound", Napi::Function::New(env, PlayFeedbackSound));
 **Nota sobre implementacao de audio**: Usar `AudioQueueNewOutput` + `AudioQueueEnqueueBuffer` + `AudioQueueStart` para reproduzir o tom, OU usar `NSSound` com dados em memoria. A abordagem mais simples e robusta e usar `AVAudioPlayer` com dados PCM em memoria via `NSData`.
 
 **Alternativa simplificada**: Se AudioQueue for muito complexo, usar `NSSound` com um beep do sistema e variar o comportamento:
+
 - Mute: `[[NSSound soundNamed:@"Tink"] play]` (tom sutil)
 - Unmute: `[[NSSound soundNamed:@"Pop"] play]` (tom positivo)
 
@@ -434,6 +450,7 @@ playFeedbackSound(isMuted: boolean): void {
 ```
 
 Atualizar interface `NativeAddon`:
+
 ```typescript
 interface NativeAddon {
   // ... existentes
@@ -452,24 +469,24 @@ if (result.success && result.muted !== undefined) {
   lastMeetStatus.muted = result.muted;
   updateTrayState();
   tray.flash();
-  mediaKeys.playFeedbackSound(result.muted);  // <-- NOVO
+  mediaKeys.playFeedbackSound(result.muted); // <-- NOVO
 }
 ```
 
 ### Arquivos a modificar (Audio Feedback)
 
-| Arquivo | Mudanca |
-|---------|---------|
+| Arquivo                       | Mudanca                                                                  |
+| ----------------------------- | ------------------------------------------------------------------------ |
 | `src/native/media_key_tap.cc` | Funcao `PlayFeedbackSound`, logica de geracao de tom ou uso de `NSSound` |
-| `src/main/media-key.ts` | Metodo `playFeedbackSound()`, interface `NativeAddon` |
-| `src/main/index.ts` | Chamar `mediaKeys.playFeedbackSound(result.muted)` apos toggle |
+| `src/main/media-key.ts`       | Metodo `playFeedbackSound()`, interface `NativeAddon`                    |
+| `src/main/index.ts`           | Chamar `mediaKeys.playFeedbackSound(result.muted)` apos toggle           |
 
 ### Testes (Audio Feedback)
 
-| Arquivo de teste | O que atualizar |
-|-----------------|-----------------|
-| `src/main/__tests__/index.test.ts` | Verificar que `playFeedbackSound` e chamado apos toggle bem-sucedido, com o valor correto de `muted` |
-| `src/main/__tests__/media-key.test.ts` | Mock do addon, verificar chamada |
+| Arquivo de teste                       | O que atualizar                                                                                      |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `src/main/__tests__/index.test.ts`     | Verificar que `playFeedbackSound` e chamado apos toggle bem-sucedido, com o valor correto de `muted` |
+| `src/main/__tests__/media-key.test.ts` | Mock do addon, verificar chamada                                                                     |
 
 ---
 

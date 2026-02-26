@@ -85,6 +85,8 @@ Three components work together:
 
 The app also listens for **AirPods stem-hold mute gestures** via `AVAudioApplication` (macOS 14+), suppressing the "Cannot Control Mic" system notification.
 
+You can also **toggle mute directly from the extension popup** by clicking the microphone status row during an active call — no media keys needed.
+
 ### Menu bar states
 
 | Icon                     | Meaning                                  |
@@ -92,6 +94,10 @@ The app also listens for **AirPods stem-hold mute gestures** via `AVAudioApplica
 | Gray microphone          | No active call — media keys pass through |
 | Microphone + signal arcs | In call, mic on                          |
 | Microphone with slash    | In call, muted                           |
+
+### Extension popup
+
+The popup shows connection status, current call state, and a list of open Meet tabs. During an active call, click the microphone row to toggle mute. You can also pin a specific Meet tab to control when multiple calls are open.
 
 ## Permissions
 

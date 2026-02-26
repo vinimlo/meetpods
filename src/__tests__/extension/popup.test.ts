@@ -108,9 +108,10 @@ describe('popup.ts', () => {
 
   describe('setMeetStatus', () => {
     it('shows no call when no active tabs', async () => {
-      globalThis.chrome.runtime.sendMessage
-        .mockResolvedValueOnce({ connected: true })
-        .mockResolvedValueOnce({ tabs: [{ tabId: 1, title: 'Meet', url: 'https://meet.google.com/abc', active: false, muted: false }], pinnedTabId: null });
+      globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({ connected: true }).mockResolvedValueOnce({
+        tabs: [{ tabId: 1, title: 'Meet', url: 'https://meet.google.com/abc', active: false, muted: false }],
+        pinnedTabId: null,
+      });
 
       await loadPopup();
 
@@ -121,9 +122,10 @@ describe('popup.ts', () => {
     });
 
     it('shows mic ON when active and not muted', async () => {
-      globalThis.chrome.runtime.sendMessage
-        .mockResolvedValueOnce({ connected: true })
-        .mockResolvedValueOnce({ tabs: [{ tabId: 1, title: 'Meet', url: 'https://meet.google.com/abc', active: true, muted: false }], pinnedTabId: null });
+      globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({ connected: true }).mockResolvedValueOnce({
+        tabs: [{ tabId: 1, title: 'Meet', url: 'https://meet.google.com/abc', active: true, muted: false }],
+        pinnedTabId: null,
+      });
 
       await loadPopup();
 
@@ -134,9 +136,10 @@ describe('popup.ts', () => {
     });
 
     it('shows muted when active and muted', async () => {
-      globalThis.chrome.runtime.sendMessage
-        .mockResolvedValueOnce({ connected: true })
-        .mockResolvedValueOnce({ tabs: [{ tabId: 1, title: 'Meet', url: 'https://meet.google.com/abc', active: true, muted: true }], pinnedTabId: null });
+      globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({ connected: true }).mockResolvedValueOnce({
+        tabs: [{ tabId: 1, title: 'Meet', url: 'https://meet.google.com/abc', active: true, muted: true }],
+        pinnedTabId: null,
+      });
 
       await loadPopup();
 
@@ -167,15 +170,13 @@ describe('popup.ts', () => {
     });
 
     it('uses pinned tab for status when available', async () => {
-      globalThis.chrome.runtime.sendMessage
-        .mockResolvedValueOnce({ connected: true })
-        .mockResolvedValueOnce({
-          tabs: [
-            { tabId: 1, title: 'Meet A', url: 'https://meet.google.com/aaa', active: true, muted: false },
-            { tabId: 2, title: 'Meet B', url: 'https://meet.google.com/bbb', active: true, muted: true },
-          ],
-          pinnedTabId: 2,
-        });
+      globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({ connected: true }).mockResolvedValueOnce({
+        tabs: [
+          { tabId: 1, title: 'Meet A', url: 'https://meet.google.com/aaa', active: true, muted: false },
+          { tabId: 2, title: 'Meet B', url: 'https://meet.google.com/bbb', active: true, muted: true },
+        ],
+        pinnedTabId: 2,
+      });
 
       await loadPopup();
 
@@ -195,12 +196,10 @@ describe('popup.ts', () => {
     });
 
     it('shows tabs section when tabs exist', async () => {
-      globalThis.chrome.runtime.sendMessage
-        .mockResolvedValueOnce({ connected: true })
-        .mockResolvedValueOnce({
-          tabs: [{ tabId: 1, title: 'Meet', url: 'https://meet.google.com/abc', active: false, muted: false }],
-          pinnedTabId: null,
-        });
+      globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({ connected: true }).mockResolvedValueOnce({
+        tabs: [{ tabId: 1, title: 'Meet', url: 'https://meet.google.com/abc', active: false, muted: false }],
+        pinnedTabId: null,
+      });
 
       await loadPopup();
 

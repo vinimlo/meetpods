@@ -579,8 +579,12 @@ describe('ExtensionBridge', () => {
 
       // Extension sends a pong response — should not emit any events or crash
       let emitted = false;
-      bridge.on('meet-status', () => { emitted = true; });
-      bridge.on('mute-toggled', () => { emitted = true; });
+      bridge.on('meet-status', () => {
+        emitted = true;
+      });
+      bridge.on('mute-toggled', () => {
+        emitted = true;
+      });
 
       client.send(JSON.stringify({ type: 'pong' }));
       await new Promise((r) => setTimeout(r, 100));

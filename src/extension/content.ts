@@ -55,10 +55,14 @@ function toggleMute(): Promise<{ success: boolean; muted?: boolean; error?: stri
   muteButton = findMuteButton();
   if (!muteButton) {
     console.log(`${TAG} toggleMute() — mute button NOT FOUND`);
-    console.log(`${TAG} toggleMute() — DOM check: ${MUTE_BUTTON_SELECTORS.map((s) => `${s}=${!!document.querySelector(s)}`).join(', ')}`);
+    console.log(
+      `${TAG} toggleMute() — DOM check: ${MUTE_BUTTON_SELECTORS.map((s) => `${s}=${!!document.querySelector(s)}`).join(', ')}`,
+    );
     return Promise.resolve({ success: false, error: 'Mute button not found' });
   }
-  console.log(`${TAG} toggleMute() — clicking mute button (data-is-muted=${muteButton.getAttribute('data-is-muted')}, aria-label=${muteButton.getAttribute('aria-label')})`);
+  console.log(
+    `${TAG} toggleMute() — clicking mute button (data-is-muted=${muteButton.getAttribute('data-is-muted')}, aria-label=${muteButton.getAttribute('aria-label')})`,
+  );
   isToggling = true;
   muteButton.click();
   return new Promise((resolve) => {
@@ -70,9 +74,7 @@ function toggleMute(): Promise<{ success: boolean; muted?: boolean; error?: stri
       // Deferred push: the MutationObserver push was suppressed during isToggling,
       // so explicitly send the status update after sendResponse has already fired.
       // This is safe because sendResponse closed its port — sendMessage uses a new one.
-      chrome.runtime
-        .sendMessage({ type: 'status_changed', active: isInCall, muted: isMuted })
-        .catch(() => {});
+      chrome.runtime.sendMessage({ type: 'status_changed', active: isInCall, muted: isMuted }).catch(() => {});
     }, POST_CLICK_DELAY_MS);
   });
 }

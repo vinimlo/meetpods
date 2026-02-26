@@ -467,11 +467,7 @@ describe('background.ts', () => {
   function addActiveTab(tabId: number, url = `https://meet.google.com/tab-${tabId}`, title = `Meet ${tabId}`) {
     tabUpdateListener(tabId, {}, { url, title });
     // Simulate content script reporting active call
-    onMessageHandler(
-      { type: 'status_changed', active: true, muted: false },
-      { tab: { id: tabId } },
-      vi.fn(),
-    );
+    onMessageHandler({ type: 'status_changed', active: true, muted: false }, { tab: { id: tabId } }, vi.fn());
   }
 
   describe('getTargetTab() — pinning logic', () => {
@@ -482,9 +478,7 @@ describe('background.ts', () => {
       onMessageHandler({ type: 'query_meet_status' }, {}, sendResponse);
 
       await new Promise((r) => setTimeout(r, 50));
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ active: false, muted: false, tabId: null }),
-      );
+      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ active: false, muted: false, tabId: null }));
     });
 
     it('one active tab auto-pins and returns it', async () => {
@@ -551,11 +545,7 @@ describe('background.ts', () => {
       onMessageHandler({ type: 'pin_tab', tabId: 10 }, {}, vi.fn());
 
       // Tab 10's call ends
-      onMessageHandler(
-        { type: 'status_changed', active: false, muted: false },
-        { tab: { id: 10 } },
-        vi.fn(),
-      );
+      onMessageHandler({ type: 'status_changed', active: false, muted: false }, { tab: { id: 10 } }, vi.fn());
 
       // Verify pin is cleared
       const listResponse = vi.fn();
@@ -624,11 +614,7 @@ describe('background.ts', () => {
       tabUpdateListener(20, {}, { url: 'https://meet.google.com/ddd-eee-fff', title: 'Meeting B' });
 
       // Mark tab 10 as active
-      onMessageHandler(
-        { type: 'status_changed', active: true, muted: true },
-        { tab: { id: 10 } },
-        vi.fn(),
-      );
+      onMessageHandler({ type: 'status_changed', active: true, muted: true }, { tab: { id: 10 } }, vi.fn());
 
       const sendResponse = vi.fn();
       onMessageHandler({ type: 'get_tab_list' }, {}, sendResponse);
@@ -681,11 +667,7 @@ describe('background.ts', () => {
       expect(result1.tabs[1].title).toBe('Zebra Meeting');
 
       // Make Zebra active — should sort first
-      onMessageHandler(
-        { type: 'status_changed', active: true, muted: false },
-        { tab: { id: 10 } },
-        vi.fn(),
-      );
+      onMessageHandler({ type: 'status_changed', active: true, muted: false }, { tab: { id: 10 } }, vi.fn());
       const sendResponse2 = vi.fn();
       onMessageHandler({ type: 'get_tab_list' }, {}, sendResponse2);
       const result2 = sendResponse2.mock.calls[0][0];
@@ -731,11 +713,7 @@ describe('background.ts', () => {
       await load();
       tabUpdateListener(10, {}, { url: 'https://meet.google.com/abc', title: 'My Meeting' });
 
-      onMessageHandler(
-        { type: 'status_changed', active: true, muted: true },
-        { tab: { id: 10 } },
-        vi.fn(),
-      );
+      onMessageHandler({ type: 'status_changed', active: true, muted: true }, { tab: { id: 10 } }, vi.fn());
 
       // Verify via get_tab_list
       const sendResponse = vi.fn();
@@ -750,11 +728,7 @@ describe('background.ts', () => {
       await load();
 
       // Should not throw — tab 999 not in meetTabs
-      onMessageHandler(
-        { type: 'status_changed', active: true, muted: false },
-        { tab: { id: 999 } },
-        vi.fn(),
-      );
+      onMessageHandler({ type: 'status_changed', active: true, muted: false }, { tab: { id: 999 } }, vi.fn());
 
       const sendResponse = vi.fn();
       onMessageHandler({ type: 'get_tab_list' }, {}, sendResponse);
@@ -772,11 +746,7 @@ describe('background.ts', () => {
       expect(listBefore.mock.calls[0][0].pinnedTabId).toBe(10);
 
       // Call ends
-      onMessageHandler(
-        { type: 'status_changed', active: false, muted: false },
-        { tab: { id: 10 } },
-        vi.fn(),
-      );
+      onMessageHandler({ type: 'status_changed', active: false, muted: false }, { tab: { id: 10 } }, vi.fn());
 
       // Verify pin is cleared
       const listAfter = vi.fn();
@@ -791,11 +761,7 @@ describe('background.ts', () => {
       onMessageHandler({ type: 'pin_tab', tabId: 10 }, {}, vi.fn());
 
       // Tab 20 (not pinned) ends call
-      onMessageHandler(
-        { type: 'status_changed', active: false, muted: false },
-        { tab: { id: 20 } },
-        vi.fn(),
-      );
+      onMessageHandler({ type: 'status_changed', active: false, muted: false }, { tab: { id: 20 } }, vi.fn());
 
       // Pin should still be on tab 10
       const listResponse = vi.fn();
