@@ -8,20 +8,57 @@ const RECONNECT_PERIOD_MIN = 0.166; // ~10s
 interface MeetTabInfo {
   url: string | undefined;
   lastFocused: number;
+  active: boolean;
+  muted: boolean;
+  title: string;
+}
+
+interface TabListEntry {
+  tabId: number;
+  title: string;
+  url: string | undefined;
+  active: boolean;
+  muted: boolean;
 }
 
 let ws: WebSocket | null = null;
 let meetTabs = new Map<number, MeetTabInfo>();
+let pinnedTabId: number | null = null;
+let pinnedManually: boolean = false;
 
 function isWsConnected(): boolean {
   return ws !== null && ws.readyState === WebSocket.OPEN;
+}
+
+function clearPin(): void {
+  pinnedTabId = null;
+  pinnedManually = false;
+}
+
+function pinTab(tabId: number): boolean {
+  if (!meetTabs.has(tabId)) return false;
+  pinnedTabId = tabId;
+  pinnedManually = true;
+  return true;
+}
+
+function extractMeetCode(url: string | undefined): string {
+  if (!url) return '';
+  const match = url.match(/meet\.google\.com\/([a-z]+-[a-z]+-[a-z]+)/);
+  return match ? match[1] : '';
 }
 
 // Fix 2: Scan existing Meet tabs on service worker startup to recover state
 chrome.tabs.query({ url: 'https://meet.google.com/*' }, (tabs) => {
   console.log(`${TAG} Startup scan: found ${tabs.length} existing Meet tab(s)`);
   for (const tab of tabs) {
-    meetTabs.set(tab.id!, { url: tab.url, lastFocused: tab.active ? Date.now() : 0 });
+    meetTabs.set(tab.id!, {
+      url: tab.url,
+      lastFocused: tab.active ? Date.now() : 0,
+      active: false,
+      muted: false,
+      title: tab.title ?? '',
+    });
     console.log(`${TAG} Recovered tab ${tab.id}: ${tab.url}`);
   }
 });
@@ -30,11 +67,23 @@ chrome.tabs.onUpdated.addListener((tabId, _changeInfo, tab) => {
   if (tab.url && tab.url.startsWith('https://meet.google.com/')) {
     if (!meetTabs.has(tabId)) {
       console.log(`${TAG} Meet tab added: ${tabId} — ${tab.url}`);
+      meetTabs.set(tabId, {
+        url: tab.url,
+        lastFocused: Date.now(),
+        active: false,
+        muted: false,
+        title: tab.title ?? '',
+      });
+    } else {
+      const info = meetTabs.get(tabId)!;
+      info.url = tab.url;
+      info.lastFocused = Date.now();
+      info.title = tab.title ?? info.title;
     }
-    meetTabs.set(tabId, { url: tab.url, lastFocused: Date.now() });
   } else if (meetTabs.has(tabId)) {
     console.log(`${TAG} Meet tab removed: ${tabId}`);
     meetTabs.delete(tabId);
+    if (tabId === pinnedTabId) clearPin();
   }
 });
 
@@ -43,6 +92,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
     console.log(`${TAG} Meet tab closed: ${tabId}`);
   }
   meetTabs.delete(tabId);
+  if (tabId === pinnedTabId) clearPin();
 });
 
 chrome.tabs.onActivated.addListener((activeInfo) => {
@@ -63,13 +113,54 @@ function getBestMeetTab(): number | null {
   return best;
 }
 
+function getTargetTab(): number | null {
+  // 1. Pinned tab — if it exists and has an active call
+  if (pinnedTabId !== null && meetTabs.has(pinnedTabId)) {
+    const info = meetTabs.get(pinnedTabId)!;
+    if (info.active) return pinnedTabId;
+    // Pinned tab exists but call ended — if manually pinned, keep pin but fall through
+    // (auto-unpin happens in status_changed handler; this handles edge cases)
+  }
+
+  // 2. Auto-detect — find tabs with active calls
+  const activeTabs: [number, MeetTabInfo][] = [];
+  for (const [tabId, info] of meetTabs) {
+    if (info.active) activeTabs.push([tabId, info]);
+  }
+
+  if (activeTabs.length === 1) {
+    // Exactly one active call — auto-pin it
+    pinnedTabId = activeTabs[0][0];
+    pinnedManually = false;
+    return pinnedTabId;
+  }
+
+  if (activeTabs.length > 1) {
+    // Multiple active calls — pick most recently focused
+    let best: number | null = null;
+    let bestTime = 0;
+    for (const [tabId, info] of activeTabs) {
+      if (info.lastFocused > bestTime) {
+        best = tabId;
+        bestTime = info.lastFocused;
+      }
+    }
+    pinnedTabId = best;
+    pinnedManually = false;
+    return pinnedTabId;
+  }
+
+  // 3. No active calls — fall back to legacy behavior (most recently focused Meet tab)
+  return getBestMeetTab();
+}
+
 async function sendToMeetTab(
   caller: string,
   messageType: string,
   fallback: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
-  const tabId = getBestMeetTab();
-  console.log(`${TAG} ${caller}() — bestTab=${tabId}`);
+  const tabId = getTargetTab();
+  console.log(`${TAG} ${caller}() — targetTab=${tabId}`);
   if (!tabId) return fallback;
   try {
     const response = await chrome.tabs.sendMessage(tabId, { type: messageType });
@@ -101,9 +192,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'query_meet_status':
       queryMeetStatus().then(sendResponse);
       return true;
-    case 'status_changed':
+    case 'status_changed': {
+      const tabId = sender.tab?.id ?? null;
+      // Update per-tab state
+      if (tabId !== null && meetTabs.has(tabId)) {
+        const info = meetTabs.get(tabId)!;
+        info.active = message.active;
+        info.muted = message.muted;
+        // Auto-unpin: pinned tab's call ended
+        if (tabId === pinnedTabId && !message.active) {
+          clearPin();
+        }
+      }
+      // Relay to Electron
       if (isWsConnected()) {
-        const tabId = sender.tab?.id ?? null;
         console.log(
           `${TAG} Relaying status_changed to Electron: active=${message.active}, muted=${message.muted}, tabId=${tabId}`,
         );
@@ -116,6 +218,35 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }),
         );
       }
+      return false;
+    }
+    case 'get_tab_list': {
+      const tabs: TabListEntry[] = [];
+      for (const [tabId, info] of meetTabs) {
+        tabs.push({
+          tabId,
+          title: info.title || `Meet (${extractMeetCode(info.url) || 'unknown'})`,
+          url: info.url,
+          active: info.active,
+          muted: info.muted,
+        });
+      }
+      // Sort: active tabs first, then alphabetical by title
+      tabs.sort((a, b) => {
+        if (a.active !== b.active) return a.active ? -1 : 1;
+        return a.title.localeCompare(b.title);
+      });
+      sendResponse({ tabs, pinnedTabId });
+      return false;
+    }
+    case 'pin_tab': {
+      const success = pinTab(message.tabId);
+      sendResponse({ success, pinnedTabId });
+      return false;
+    }
+    case 'unpin_tab':
+      clearPin();
+      sendResponse({ success: true, pinnedTabId: null });
       return false;
   }
 });
