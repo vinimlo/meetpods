@@ -141,14 +141,21 @@ Multiple event sources can fire for the same gesture:
 - Setting `avAudioHandlerActive` at registration time (not AUHAL start) creates a dead zone — Darwin fallback is gated off but AVAudioApplication can't fire without active audio I/O
 - In the content script, calling `chrome.runtime.sendMessage()` before `sendResponse()` invalidates the response port — see Section 13
 
-## 11. Code Style
+## 11. Disk Usage
+
+Working tree uses ~1 GB (`node_modules/` 667 MB + `dist/` 349 MB). `sharp` is only used by `make icons` (icon generation scripts).
+
+- `make clean` — remove `dist/` and native build (~349 MB)
+- `make pristine` — remove everything including `node_modules/` (~1 GB), run `make setup` after
+
+## 12. Code Style
 
 - TypeScript strict mode (`tsconfig.json`)
 - Main process: CommonJS (`require`/`module.exports`)
 - Chrome extension: ES2022 modules, bundled by esbuild
 - Native addon: C++/ObjC++ with NAPI (`node-addon-api`)
 
-## 12. AVAudioApplication Registration vs Activation
+## 13. AVAudioApplication Registration vs Activation
 
 The native addon uses a two-flag pattern to coordinate the AVAudioApplication handler with the Darwin notification fallback:
 
@@ -159,7 +166,7 @@ The Darwin notification (`com.apple.audioaccessoryd.MuteState`) serves as a **fa
 
 **Critical bug this prevents:** Setting `avAudioHandlerActive = true` at registration time (in `Start()`) creates a dead zone where neither path fires — the Darwin fallback is gated off, but AVAudioApplication can't fire without active audio I/O from AUHAL.
 
-## 13. Chrome MV3 sendResponse Port Invalidation
+## 14. Chrome MV3 sendResponse Port Invalidation
 
 When a content script's `onMessage` handler returns `true` (signaling an async response), Chrome MV3 keeps the message port open for `sendResponse()`. However, calling `chrome.runtime.sendMessage()` from the **same content script** before `sendResponse()` fires can invalidate the pending response port, causing the caller to receive `undefined` instead of the actual response.
 
@@ -187,7 +194,7 @@ sendResponse({ success, muted });   // port is still valid — no intervening se
 
 The flag prevents any `chrome.runtime.sendMessage()` call between the click and the `sendResponse()`, keeping the response port alive.
 
-## 14. Deferred Push Pattern (isToggling + explicit sendMessage)
+## 15. Deferred Push Pattern (isToggling + explicit sendMessage)
 
 Suppressing `pushStatusChange()` during the toggle window (Section 13) introduces a secondary problem: the MutationObserver-triggered push was the **only** mechanism that would notify Electron of the mute state change from a toggle. Without it:
 

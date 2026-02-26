@@ -1,5 +1,5 @@
 .PHONY: install setup dev ext test test-watch coverage \
-       build build-ts build-ext build-native icons dist clean \
+       build build-ts build-ext build-native icons dist clean pristine \
        lint lint-fix format format-check bump help
 
 # ── Install (production) ─────────────────────────
@@ -84,6 +84,10 @@ dist: build  ## Build .dmg installer (no auto-open)
 clean:  ## Remove all build artifacts
 	rm -rf dist src/native/build
 
+pristine: clean  ## Remove ALL artifacts including node_modules (~1 GB)
+	rm -rf node_modules coverage
+	@echo "Reclaimed ~1 GB. Run 'make setup' to reinstall."
+
 bump:  ## Bump version (usage: make bump V=0.2.0 or make bump V=minor)
 	node scripts/bump-version.mjs $(V)
 
@@ -117,7 +121,7 @@ help:  ## Show available commands
 	@grep -E '^(test|test-watch|coverage):.*##' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "    \033[36mmake %-12s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "  \033[90mBuild:\033[0m"
-	@grep -E '^(build|icons|dist|clean):.*##' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "    \033[36mmake %-12s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^(build|icons|dist|clean|pristine):.*##' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "    \033[36mmake %-12s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "  \033[90mCode quality:\033[0m"
 	@grep -E '^(lint|lint-fix|format|format-check):.*##' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "    \033[36mmake %-12s\033[0m %s\n", $$1, $$2}'
