@@ -4,9 +4,16 @@ interface TabListEntry {
   tabId: number;
   title: string;
   url: string | undefined;
+  platform: string;
   active: boolean;
   muted: boolean;
 }
+
+const PLATFORM_DISPLAY: Record<string, string> = {
+  meet: 'Google Meet',
+  zoom: 'Zoom',
+  teams: 'Teams',
+};
 
 const dotElectron = document.getElementById('dot-electron')!;
 const badgeElectron = document.getElementById('badge-electron')!;
@@ -16,6 +23,7 @@ const dotMic = document.getElementById('dot-mic')!;
 const badgeMic = document.getElementById('badge-mic')!;
 const rowMic = document.getElementById('row-mic')!;
 const toggleHint = document.getElementById('toggle-hint')!;
+const platformLabel = document.getElementById('platform-label')!;
 const tabsSection = document.getElementById('tabs-section')!;
 const tabsCount = document.getElementById('tabs-count')!;
 const tabsList = document.getElementById('tabs-list')!;
@@ -134,8 +142,10 @@ async function loadTabList(): Promise<void> {
     // Update status rows from the pinned/target tab (or first active tab)
     const targetTab = tabs.find((t) => t.tabId === pinnedId) ?? tabs.find((t) => t.active);
     if (targetTab) {
+      platformLabel.textContent = PLATFORM_DISPLAY[targetTab.platform] ?? 'Call Status';
       setMeetStatus(targetTab.active, targetTab.muted);
     } else {
+      platformLabel.textContent = 'Call Status';
       setMeetStatus(false, false);
     }
 

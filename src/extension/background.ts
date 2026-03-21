@@ -1,5 +1,8 @@
 export {};
 
+import { detectPlatformFromUrl, PLATFORM_URL_PATTERNS } from './platforms/registry';
+import type { PlatformId } from './platforms/types';
+
 const TAG = '[MeetPods:bg]';
 const WS_URL = 'ws://127.0.0.1:18432';
 const RECONNECT_ALARM = 'reconnect';
@@ -7,6 +10,7 @@ const RECONNECT_PERIOD_MIN = 0.166; // ~10s
 
 interface MeetTabInfo {
   url: string | undefined;
+  platform: PlatformId;
   lastFocused: number;
   active: boolean;
   muted: boolean;
@@ -17,6 +21,7 @@ interface TabListEntry {
   tabId: number;
   title: string;
   url: string | undefined;
+  platform: PlatformId;
   active: boolean;
   muted: boolean;
 }
@@ -42,33 +47,58 @@ function pinTab(tabId: number): boolean {
   return true;
 }
 
-function extractMeetCode(url: string | undefined): string {
+function extractCallId(platform: PlatformId, url: string | undefined): string {
   if (!url) return '';
-  const match = url.match(/meet\.google\.com\/([a-z]+-[a-z]+-[a-z]+)/);
-  return match ? match[1] : '';
+  switch (platform) {
+    case 'meet': {
+      const match = url.match(/meet\.google\.com\/([a-z]+-[a-z]+-[a-z]+)/);
+      return match ? match[1] : '';
+    }
+    case 'zoom': {
+      const match = url.match(/zoom\.us\/(?:wc|meeting)\/(\d+)/);
+      return match ? match[1] : '';
+    }
+    case 'teams': {
+      const match = url.match(/meetup-join\/([^/?]+)/);
+      return match ? match[1] : '';
+    }
+  }
 }
 
-// Fix 2: Scan existing Meet tabs on service worker startup to recover state
-chrome.tabs.query({ url: 'https://meet.google.com/*' }, (tabs) => {
-  console.log(`${TAG} Startup scan: found ${tabs.length} existing Meet tab(s)`);
-  for (const tab of tabs) {
-    meetTabs.set(tab.id!, {
-      url: tab.url,
-      lastFocused: tab.active ? Date.now() : 0,
-      active: false,
-      muted: false,
-      title: tab.title ?? '',
-    });
-    console.log(`${TAG} Recovered tab ${tab.id}: ${tab.url}`);
-  }
-});
+const PLATFORM_DISPLAY: Record<PlatformId, string> = {
+  meet: 'Meet',
+  zoom: 'Zoom',
+  teams: 'Teams',
+};
+
+// Scan existing platform tabs on service worker startup to recover state
+for (const pattern of PLATFORM_URL_PATTERNS) {
+  chrome.tabs.query({ url: pattern }, (tabs) => {
+    console.log(`${TAG} Startup scan (${pattern}): found ${tabs.length} tab(s)`);
+    for (const tab of tabs) {
+      const platform = detectPlatformFromUrl(tab.url ?? '');
+      if (!platform) continue;
+      meetTabs.set(tab.id!, {
+        url: tab.url,
+        platform,
+        lastFocused: tab.active ? Date.now() : 0,
+        active: false,
+        muted: false,
+        title: tab.title ?? '',
+      });
+      console.log(`${TAG} Recovered tab ${tab.id}: ${tab.url} (${platform})`);
+    }
+  });
+}
 
 chrome.tabs.onUpdated.addListener((tabId, _changeInfo, tab) => {
-  if (tab.url && tab.url.startsWith('https://meet.google.com/')) {
+  const platform = tab.url ? detectPlatformFromUrl(tab.url) : null;
+  if (platform) {
     if (!meetTabs.has(tabId)) {
-      console.log(`${TAG} Meet tab added: ${tabId} — ${tab.url}`);
+      console.log(`${TAG} ${platform} tab added: ${tabId} — ${tab.url}`);
       meetTabs.set(tabId, {
         url: tab.url,
+        platform,
         lastFocused: Date.now(),
         active: false,
         muted: false,
@@ -77,11 +107,12 @@ chrome.tabs.onUpdated.addListener((tabId, _changeInfo, tab) => {
     } else {
       const info = meetTabs.get(tabId)!;
       info.url = tab.url;
+      info.platform = platform;
       info.lastFocused = Date.now();
       info.title = tab.title ?? info.title;
     }
   } else if (meetTabs.has(tabId)) {
-    console.log(`${TAG} Meet tab removed: ${tabId}`);
+    console.log(`${TAG} Platform tab removed: ${tabId}`);
     meetTabs.delete(tabId);
     if (tabId === pinnedTabId) clearPin();
   }
@@ -89,7 +120,7 @@ chrome.tabs.onUpdated.addListener((tabId, _changeInfo, tab) => {
 
 chrome.tabs.onRemoved.addListener((tabId) => {
   if (meetTabs.has(tabId)) {
-    console.log(`${TAG} Meet tab closed: ${tabId}`);
+    console.log(`${TAG} Platform tab closed: ${tabId}`);
   }
   meetTabs.delete(tabId);
   if (tabId === pinnedTabId) clearPin();
@@ -118,7 +149,7 @@ function getTargetTab(): number | null {
     `${TAG} getTargetTab() — meetTabs=${meetTabs.size}, pinnedTabId=${pinnedTabId}, pinnedManually=${pinnedManually}`,
   );
   for (const [tabId, info] of meetTabs) {
-    console.log(`${TAG}   tab ${tabId}: active=${info.active}, muted=${info.muted}, title="${info.title}"`);
+    console.log(`${TAG}   tab ${tabId}: active=${info.active}, muted=${info.muted}, platform=${info.platform}, title="${info.title}"`);
   }
 
   // 1. Pinned tab — if it exists and has an active call
@@ -129,8 +160,6 @@ function getTargetTab(): number | null {
       return pinnedTabId;
     }
     console.log(`${TAG} getTargetTab() — pinned tab ${pinnedTabId} exists but call not active, falling through`);
-    // Pinned tab exists but call ended — if manually pinned, keep pin but fall through
-    // (auto-unpin happens in status_changed handler; this handles edge cases)
   }
 
   // 2. Auto-detect — find tabs with active calls
@@ -140,7 +169,6 @@ function getTargetTab(): number | null {
   }
 
   if (activeTabs.length === 1) {
-    // Exactly one active call — auto-pin it
     pinnedTabId = activeTabs[0][0];
     pinnedManually = false;
     console.log(`${TAG} getTargetTab() → auto-pinned tab ${pinnedTabId} (only active call)`);
@@ -148,7 +176,6 @@ function getTargetTab(): number | null {
   }
 
   if (activeTabs.length > 1) {
-    // Multiple active calls — pick most recently focused
     let best: number | null = null;
     let bestTime = 0;
     for (const [tabId, info] of activeTabs) {
@@ -163,9 +190,9 @@ function getTargetTab(): number | null {
     return pinnedTabId;
   }
 
-  // 3. No active calls — fall back to legacy behavior (most recently focused Meet tab)
+  // 3. No active calls — fall back to most recently focused tab
   const fallback = getBestMeetTab();
-  console.log(`${TAG} getTargetTab() → no active calls, fallback to best Meet tab: ${fallback}`);
+  console.log(`${TAG} getTargetTab() → no active calls, fallback to best tab: ${fallback}`);
   return fallback;
 }
 
@@ -192,39 +219,37 @@ function queryMeetStatus() {
   return sendToMeetTab('queryMeetStatus', 'get_status', { active: false, muted: false, tabId: null });
 }
 
-async function toggleMuteOnMeet() {
+async function toggleMuteOnTab() {
   const tabId = getTargetTab();
-  console.log(`${TAG} toggleMuteOnMeet() — targetTab=${tabId}`);
-  if (!tabId) return { success: false, error: 'No Meet tab found' };
+  console.log(`${TAG} toggleMuteOnTab() — targetTab=${tabId}`);
+  if (!tabId) return { success: false, error: 'No call tab found' };
 
-  // Google Meet's Wiz framework ignores synthetic clicks on background tabs.
-  // Briefly focus the Meet tab so .click() works, then restore the previous tab.
+  // Some platforms (e.g. Google Meet's Wiz framework) ignore synthetic clicks on background tabs.
+  // Briefly focus the tab so .click() works, then restore the previous tab.
   let previousTabId: number | null = null;
   try {
     const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
     if (activeTab?.id && activeTab.id !== tabId) {
       previousTabId = activeTab.id;
-      console.log(`${TAG} toggleMuteOnMeet() — focusing Meet tab ${tabId} (was: ${previousTabId})`);
+      console.log(`${TAG} toggleMuteOnTab() — focusing tab ${tabId} (was: ${previousTabId})`);
       await chrome.tabs.update(tabId, { active: true });
-      // Small delay for the tab to become visible so Meet processes the click
       await new Promise((r) => setTimeout(r, 50));
     }
   } catch (err) {
-    console.log(`${TAG} toggleMuteOnMeet() — tab focus failed: ${(err as Error).message}`);
+    console.log(`${TAG} toggleMuteOnTab() — tab focus failed: ${(err as Error).message}`);
   }
 
   try {
     const response = await chrome.tabs.sendMessage(tabId, { type: 'toggle_mute' });
-    console.log(`${TAG} toggleMuteOnMeet() — tab ${tabId} responded:`, response);
+    console.log(`${TAG} toggleMuteOnTab() — tab ${tabId} responded:`, response);
     return { ...response, tabId };
   } catch (err) {
-    console.log(`${TAG} toggleMuteOnMeet() — tab ${tabId} FAILED: ${(err as Error).message}`);
+    console.log(`${TAG} toggleMuteOnTab() — tab ${tabId} FAILED: ${(err as Error).message}`);
     meetTabs.delete(tabId);
     return { success: false, error: 'Content script unreachable' };
   } finally {
-    // Restore the previously active tab
     if (previousTabId !== null) {
-      console.log(`${TAG} toggleMuteOnMeet() — restoring previous tab ${previousTabId}`);
+      console.log(`${TAG} toggleMuteOnTab() — restoring previous tab ${previousTabId}`);
       chrome.tabs.update(previousTabId, { active: true }).catch(() => {});
     }
   }
@@ -243,20 +268,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     case 'status_changed': {
       const tabId = sender.tab?.id ?? null;
-      // Update per-tab state
       if (tabId !== null && meetTabs.has(tabId)) {
         const info = meetTabs.get(tabId)!;
         info.active = message.active;
         info.muted = message.muted;
-        // Auto-unpin: pinned tab's call ended
         if (tabId === pinnedTabId && !message.active) {
           clearPin();
         }
       }
-      // Relay to Electron
       if (isWsConnected()) {
+        const platform = tabId !== null && meetTabs.has(tabId) ? meetTabs.get(tabId)!.platform : undefined;
         console.log(
-          `${TAG} Relaying status_changed to Electron: active=${message.active}, muted=${message.muted}, tabId=${tabId}`,
+          `${TAG} Relaying status_changed to Electron: active=${message.active}, muted=${message.muted}, tabId=${tabId}, platform=${platform}`,
         );
         ws!.send(
           JSON.stringify({
@@ -264,6 +287,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             active: message.active,
             muted: message.muted,
             tabId,
+            ...(platform && { platform }),
           }),
         );
       }
@@ -272,15 +296,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'get_tab_list': {
       const tabs: TabListEntry[] = [];
       for (const [tabId, info] of meetTabs) {
+        const displayName = PLATFORM_DISPLAY[info.platform];
         tabs.push({
           tabId,
-          title: info.title || `Meet (${extractMeetCode(info.url) || 'unknown'})`,
+          title: info.title || `${displayName} (${extractCallId(info.platform, info.url) || 'unknown'})`,
           url: info.url,
+          platform: info.platform,
           active: info.active,
           muted: info.muted,
         });
       }
-      // Sort: active tabs first, then alphabetical by title
       tabs.sort((a, b) => {
         if (a.active !== b.active) return a.active ? -1 : 1;
         return a.title.localeCompare(b.title);
@@ -298,7 +323,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ success: true, pinnedTabId: null });
       return false;
     case 'toggle_mute':
-      toggleMuteOnMeet().then(sendResponse);
+      toggleMuteOnTab().then(sendResponse);
       return true;
   }
 });
@@ -323,7 +348,7 @@ function connectWS(): void {
         }
         case 'toggle_mute': {
           console.log(`${TAG} WS toggle_mute — requestId=${message.requestId}, ws.readyState=${ws!.readyState}`);
-          const result = await toggleMuteOnMeet();
+          const result = await toggleMuteOnTab();
           console.log(`${TAG} WS toggle_mute — result:`, JSON.stringify(result));
           if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: 'mute_toggled', ...result, requestId: message.requestId }));
@@ -347,7 +372,6 @@ function connectWS(): void {
     };
     ws.onerror = () => {
       console.log(`${TAG} WebSocket error`);
-      // Don't set ws = null or scheduleReconnect here — onclose always fires after onerror
     };
   } catch {
     console.log(`${TAG} WebSocket connection failed`);

@@ -1,13 +1,36 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+const mockDetectPlatform = vi.hoisted(() => vi.fn());
+
+vi.mock('../../extension/platforms/registry', () => ({
+  detectPlatform: mockDetectPlatform,
+}));
+
 describe('content.ts', () => {
   let onMessageHandler: any;
   let mutationCallback: any;
   let mockObserverInstance: any;
+  let mockAdapter: any;
 
   beforeEach(() => {
     onMessageHandler = null;
     mutationCallback = null;
+
+    mockAdapter = {
+      platformId: 'meet',
+      displayName: 'Google Meet',
+      muteButtonSelectors: [
+        'button[data-is-muted][aria-label*="microphone" i]',
+        'button[data-is-muted][aria-label*="microfone" i]',
+      ],
+      callIndicators: ['[data-call-ended]', 'button[data-is-muted]', '[data-meeting-title]'],
+      observedAttributes: ['data-is-muted', 'aria-label'],
+      findMuteButton: vi.fn().mockReturnValue(null),
+      isMuted: vi.fn().mockReturnValue(false),
+      isInCall: vi.fn().mockReturnValue(false),
+    };
+
+    mockDetectPlatform.mockReturnValue(mockAdapter);
 
     globalThis.chrome = {
       runtime: {
@@ -21,7 +44,7 @@ describe('content.ts', () => {
     };
 
     globalThis.window = {
-      location: { href: 'https://meet.google.com/abc-defg-hij' },
+      location: { href: 'https://meet.google.com/abc-defg-hij', hostname: 'meet.google.com' },
     };
 
     globalThis.document = {
@@ -53,32 +76,39 @@ describe('content.ts', () => {
     await import('../../extension/content.ts');
   }
 
-  describe('findMuteButton()', () => {
-    it('finds first matching selector', async () => {
-      const btn = { getAttribute: vi.fn().mockReturnValue('false'), click: vi.fn() };
-      globalThis.document.querySelector.mockImplementation((sel: string) => {
-        if (sel.includes('microphone')) return btn;
-        return null;
-      });
+  describe('platform detection', () => {
+    it('exits early when no adapter matches', async () => {
+      mockDetectPlatform.mockReturnValue(null);
 
       await loadContent();
-      expect(globalThis.document.querySelector).toHaveBeenCalled();
+      expect(globalThis.chrome.runtime.onMessage.addListener).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findMuteButton()', () => {
+    it('delegates to adapter.findMuteButton()', async () => {
+      const btn = { getAttribute: vi.fn().mockReturnValue('false'), click: vi.fn() };
+      mockAdapter.findMuteButton.mockReturnValue(btn);
+      mockAdapter.isMuted.mockReturnValue(false);
+
+      await loadContent();
+      expect(mockAdapter.findMuteButton).toHaveBeenCalled();
     });
 
-    it('returns null when no selector matches', async () => {
-      globalThis.document.querySelector.mockReturnValue(null);
+    it('returns null when adapter finds no button', async () => {
+      mockAdapter.findMuteButton.mockReturnValue(null);
+      mockAdapter.isInCall.mockReturnValue(false);
+
       await loadContent();
-      expect(globalThis.document.querySelector).toHaveBeenCalled();
+      expect(mockAdapter.findMuteButton).toHaveBeenCalled();
     });
   });
 
   describe('checkCallStatus()', () => {
-    it('detects muted state from button', async () => {
-      const btn = { getAttribute: vi.fn().mockReturnValue('true'), click: vi.fn() };
-      globalThis.document.querySelector.mockImplementation((sel: string) => {
-        if (sel.includes('microphone')) return btn;
-        return null;
-      });
+    it('detects muted state from adapter', async () => {
+      const btn = { getAttribute: vi.fn(), click: vi.fn() };
+      mockAdapter.findMuteButton.mockReturnValue(btn);
+      mockAdapter.isMuted.mockReturnValue(true);
 
       await loadContent();
 
@@ -87,12 +117,10 @@ describe('content.ts', () => {
       expect(sendResponse).toHaveBeenCalledWith({ active: true, muted: true });
     });
 
-    it('detects unmuted state from button', async () => {
-      const btn = { getAttribute: vi.fn().mockReturnValue('false'), click: vi.fn() };
-      globalThis.document.querySelector.mockImplementation((sel: string) => {
-        if (sel.includes('microphone')) return btn;
-        return null;
-      });
+    it('detects unmuted state from adapter', async () => {
+      const btn = { getAttribute: vi.fn(), click: vi.fn() };
+      mockAdapter.findMuteButton.mockReturnValue(btn);
+      mockAdapter.isMuted.mockReturnValue(false);
 
       await loadContent();
 
@@ -101,11 +129,9 @@ describe('content.ts', () => {
       expect(sendResponse).toHaveBeenCalledWith({ active: true, muted: false });
     });
 
-    it('detects call via CALL_INDICATORS when no mute button', async () => {
-      globalThis.document.querySelector.mockImplementation((sel: string) => {
-        if (sel === '[data-call-ended]') return { tagName: 'DIV' };
-        return null;
-      });
+    it('detects call via adapter.isInCall() when no mute button', async () => {
+      mockAdapter.findMuteButton.mockReturnValue(null);
+      mockAdapter.isInCall.mockReturnValue(true);
 
       await loadContent();
 
@@ -115,7 +141,9 @@ describe('content.ts', () => {
     });
 
     it('detects no call when nothing matches', async () => {
-      globalThis.document.querySelector.mockReturnValue(null);
+      mockAdapter.findMuteButton.mockReturnValue(null);
+      mockAdapter.isInCall.mockReturnValue(false);
+
       await loadContent();
 
       const sendResponse = vi.fn();
@@ -126,11 +154,9 @@ describe('content.ts', () => {
 
   describe('toggleMute()', () => {
     it('clicks button and returns result after delay', async () => {
-      const btn = { getAttribute: vi.fn().mockReturnValue('false'), click: vi.fn() };
-      globalThis.document.querySelector.mockImplementation((sel: string) => {
-        if (sel.includes('microphone')) return btn;
-        return null;
-      });
+      const btn = { getAttribute: vi.fn(), click: vi.fn() };
+      mockAdapter.findMuteButton.mockReturnValue(btn);
+      mockAdapter.isMuted.mockReturnValue(false);
 
       await loadContent();
 
@@ -145,7 +171,9 @@ describe('content.ts', () => {
     });
 
     it('returns error when no mute button found', async () => {
-      globalThis.document.querySelector.mockReturnValue(null);
+      mockAdapter.findMuteButton.mockReturnValue(null);
+      mockAdapter.isInCall.mockReturnValue(false);
+
       await loadContent();
 
       const sendResponse = vi.fn();
@@ -161,7 +189,9 @@ describe('content.ts', () => {
 
   describe('onMessage handler', () => {
     it('handles get_status synchronously', async () => {
-      globalThis.document.querySelector.mockReturnValue(null);
+      mockAdapter.findMuteButton.mockReturnValue(null);
+      mockAdapter.isInCall.mockReturnValue(false);
+
       await loadContent();
 
       const sendResponse = vi.fn();
@@ -171,7 +201,9 @@ describe('content.ts', () => {
     });
 
     it('handles toggle_mute asynchronously', async () => {
-      globalThis.document.querySelector.mockReturnValue(null);
+      mockAdapter.findMuteButton.mockReturnValue(null);
+      mockAdapter.isInCall.mockReturnValue(false);
+
       await loadContent();
 
       const sendResponse = vi.fn();
@@ -191,15 +223,15 @@ describe('content.ts', () => {
 
   describe('pushStatusChange()', () => {
     it('sends status_changed when status changes', async () => {
-      globalThis.document.querySelector.mockReturnValue(null);
+      mockAdapter.findMuteButton.mockReturnValue(null);
+      mockAdapter.isInCall.mockReturnValue(false);
+
       await loadContent();
 
       // Now simulate a mute button appearing
-      const btn = { getAttribute: vi.fn().mockReturnValue('true'), click: vi.fn() };
-      globalThis.document.querySelector.mockImplementation((sel: string) => {
-        if (sel.includes('microphone')) return btn;
-        return null;
-      });
+      const btn = { getAttribute: vi.fn(), click: vi.fn() };
+      mockAdapter.findMuteButton.mockReturnValue(btn);
+      mockAdapter.isMuted.mockReturnValue(true);
 
       mutationCallback();
 
@@ -213,7 +245,9 @@ describe('content.ts', () => {
     });
 
     it('does not send when status unchanged', async () => {
-      globalThis.document.querySelector.mockReturnValue(null);
+      mockAdapter.findMuteButton.mockReturnValue(null);
+      mockAdapter.isInCall.mockReturnValue(false);
+
       await loadContent();
 
       globalThis.chrome.runtime.sendMessage.mockClear();
@@ -223,16 +257,16 @@ describe('content.ts', () => {
     });
 
     it('handles sendMessage error gracefully', async () => {
-      globalThis.document.querySelector.mockReturnValue(null);
+      mockAdapter.findMuteButton.mockReturnValue(null);
+      mockAdapter.isInCall.mockReturnValue(false);
+
       await loadContent();
 
       globalThis.chrome.runtime.sendMessage.mockRejectedValue(new Error('disconnected'));
 
-      const btn = { getAttribute: vi.fn().mockReturnValue('false'), click: vi.fn() };
-      globalThis.document.querySelector.mockImplementation((sel: string) => {
-        if (sel.includes('microphone')) return btn;
-        return null;
-      });
+      const btn = { getAttribute: vi.fn(), click: vi.fn() };
+      mockAdapter.findMuteButton.mockReturnValue(btn);
+      mockAdapter.isMuted.mockReturnValue(false);
 
       // Should not throw
       mutationCallback();
@@ -241,11 +275,15 @@ describe('content.ts', () => {
   });
 
   describe('startObserving()', () => {
-    it('creates MutationObserver on load', async () => {
+    it('creates MutationObserver on load with adapter attributes', async () => {
       await loadContent();
       expect(mockObserverInstance.observe).toHaveBeenCalledWith(
         globalThis.document.body,
-        expect.objectContaining({ childList: true, subtree: true }),
+        expect.objectContaining({
+          childList: true,
+          subtree: true,
+          attributeFilter: ['data-is-muted', 'aria-label'],
+        }),
       );
     });
   });

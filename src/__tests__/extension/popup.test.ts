@@ -19,6 +19,7 @@ describe('popup.ts', () => {
         addEventListener: vi.fn(),
       },
       'toggle-hint': { className: '', textContent: '', style: {} },
+      'platform-label': { className: '', textContent: '' },
       'version-label': { className: '', textContent: '' },
       'tabs-section': { style: { display: 'none' }, className: '', textContent: '' },
       'tabs-count': { className: '', textContent: '' },
