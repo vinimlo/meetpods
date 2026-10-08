@@ -17,6 +17,7 @@ let enabled = true;
 let lastMeetStatus: MeetStatus = { active: false, muted: false, tabId: null };
 let audioInputActive = false;
 let mediaKeysActive = false;
+let syncedInputMuted: boolean | null = null;
 let showMuteHudEnabled = true;
 let pendingFeedback: { expectedMuted: boolean; timestamp: number; isAirpods: boolean } | null = null;
 
@@ -59,13 +60,30 @@ function syncMediaKeys(): void {
   }
 }
 
+// Keep macOS's per-app input-mute state equal to Meet's. macOS replays that state to the
+// AVAudioApplication handler when the record session goes active; left at its default
+// (unmuted), the replay reads as an AirPods "unmute" request and unmutes the call.
+// Needs the handler registered (start()) — macOS rejects the call otherwise.
+function syncInputMuteState(): void {
+  if (!mediaKeysActive || !lastMeetStatus.active) {
+    syncedInputMuted = null;
+    return;
+  }
+  if (syncedInputMuted === lastMeetStatus.muted) return;
+  mediaKeys.setInputMuted(lastMeetStatus.muted);
+  syncedInputMuted = lastMeetStatus.muted;
+}
+
 function updateTrayState(): void {
   const state: TrayState = !enabled || !lastMeetStatus.active ? 'idle' : lastMeetStatus.muted ? 'muted' : 'in-call';
   console.log(`${TAG} updateTrayState() → ${state}`);
   tray.setState(state);
   syncConsume();
-  syncAudioInput();
+  // Order matters: register the AVAudioApplication handler (start()), then store Meet's
+  // mute state, then start audio input — so the replay on activation carries Meet's state.
   syncMediaKeys();
+  syncInputMuteState();
+  syncAudioInput();
 }
 
 let lastMediaKeyHandledMs = 0;
@@ -106,9 +124,13 @@ async function handleMediaKey(): Promise<void> {
   );
 
   if (result.success && result.muted !== undefined) {
+    // Cleared already = the meet-status fallback gave the feedback (the push often lands
+    // before this result; the 2s request timeout is shorter than the 5s fallback window).
+    const feedbackAlreadyGiven = pendingFeedback === null;
     pendingFeedback = null;
     lastMeetStatus.muted = result.muted;
     updateTrayState();
+    if (feedbackAlreadyGiven) return;
     tray.flash();
     mediaKeys.playFeedbackSound(result.muted);
     if (showMuteHudEnabled) showMuteHud(result.muted);
@@ -163,9 +185,11 @@ async function handleAirpodsMute(shouldBeMuted: boolean): Promise<void> {
   );
 
   if (result.success && result.muted !== undefined) {
+    const feedbackAlreadyGiven = pendingFeedback === null; // see handleMediaKey()
     pendingFeedback = null;
     lastMeetStatus.muted = result.muted;
     updateTrayState();
+    if (feedbackAlreadyGiven) return;
     tray.flash();
     // Delay: let audioaccessoryd finish routing transition after AirPods mute gesture
     setTimeout(() => mediaKeys.playFeedbackSound(result.muted!), 300);

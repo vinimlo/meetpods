@@ -35,6 +35,19 @@ function isWsConnected(): boolean {
   return ws !== null && ws.readyState === WebSocket.OPEN;
 }
 
+// Content scripts die with the tab and can't push `active: false` before they go.
+// When the last tab in an active call disappears (closed or navigated away), synthesize
+// the inactive push here — otherwise Electron keeps AUHAL running and the mic stays open.
+function notifyElectronIfNoActiveCallsRemain(): void {
+  for (const info of meetTabs.values()) {
+    if (info.active) return;
+  }
+  if (isWsConnected()) {
+    console.log(`${TAG} No active call tabs remain — notifying Electron (active=false)`);
+    ws!.send(JSON.stringify({ type: 'meet_status', active: false, muted: false, tabId: null }));
+  }
+}
+
 function clearPin(): void {
   pinnedTabId = null;
   pinnedManually = false;
@@ -113,17 +126,21 @@ chrome.tabs.onUpdated.addListener((tabId, _changeInfo, tab) => {
     }
   } else if (meetTabs.has(tabId)) {
     console.log(`${TAG} Platform tab removed: ${tabId}`);
+    const wasActive = meetTabs.get(tabId)!.active;
     meetTabs.delete(tabId);
     if (tabId === pinnedTabId) clearPin();
+    if (wasActive) notifyElectronIfNoActiveCallsRemain();
   }
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
+  const wasActive = meetTabs.get(tabId)?.active === true;
   if (meetTabs.has(tabId)) {
     console.log(`${TAG} Platform tab closed: ${tabId}`);
   }
   meetTabs.delete(tabId);
   if (tabId === pinnedTabId) clearPin();
+  if (wasActive) notifyElectronIfNoActiveCallsRemain();
 });
 
 chrome.tabs.onActivated.addListener((activeInfo) => {
@@ -268,6 +285,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     case 'status_changed': {
       const tabId = sender.tab?.id ?? null;
+      const wasActive = tabId !== null && meetTabs.get(tabId)?.active === true;
+      // Content scripts report their initial state on load. An idle tab saying "not in a
+      // call" must not switch MeetPods off while another tab is in one.
+      if (!message.active && !wasActive) return false;
       if (tabId !== null && meetTabs.has(tabId)) {
         const info = meetTabs.get(tabId)!;
         info.active = message.active;

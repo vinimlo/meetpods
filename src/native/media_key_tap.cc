@@ -155,6 +155,7 @@ static std::atomic<uint64_t> lastAirpodsMuteTimeMs{0};
 static const void *kDarwinObserver = &kDarwinObserver;
 static bool avAudioHandlerRegistered = false;  // handler registered (Start())
 static bool avAudioHandlerActive = false;       // handler CAN fire (AUHAL running + registered)
+static std::atomic<bool> settingInputMuted{false};  // inside our own setInputMuted: call
 
 // AUHAL: lightweight audio input unit to satisfy macOS "active audio I/O" requirement.
 // Without this, AVAudioApplication.setInputMuteStateChangeHandler never fires.
@@ -495,6 +496,32 @@ Napi::Value StopAudioInput(const Napi::CallbackInfo& info) {
     return info.Env().Undefined();
 }
 
+// Store the app's input-mute state in macOS (mirrors Meet's mute state). macOS replays it to
+// the AVAudioApplication handler when the record session goes active, so it must match Meet.
+// Requires the handler to be registered — audiomxd rejects the call otherwise.
+Napi::Value SetInputMuted(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    if (info.Length() < 1 || !info[0].IsBoolean()) {
+        Napi::TypeError::New(env, "Boolean required").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+    bool muted = info[0].As<Napi::Boolean>().Value();
+    if (@available(macOS 14.0, *)) {
+        if (!avAudioHandlerRegistered) {
+            fprintf(stderr, "[MeetPods:native] SetInputMuted(%d): skipped (handler not registered)\n", muted);
+            return Napi::Boolean::New(env, false);
+        }
+        NSError *error = nil;
+        settingInputMuted.store(true);  // the handler fires during this call — see handler
+        BOOL ok = [AVAudioApplication.sharedInstance setInputMuted:muted error:&error];
+        settingInputMuted.store(false);
+        fprintf(stderr, "[MeetPods:native] SetInputMuted(%d) → %s%s\n", muted, ok ? "ok" : "FAILED: ",
+                ok ? "" : (error ? [[error localizedDescription] UTF8String] : "unknown error"));
+        return Napi::Boolean::New(env, ok);
+    }
+    return Napi::Boolean::New(env, false);
+}
+
 Napi::Value Start(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
     if (info.Length() < 1 || !info[0].IsFunction()) {
@@ -561,8 +588,23 @@ Napi::Value Start(const Napi::CallbackInfo& info) {
         AVAudioApplication *audioApp = AVAudioApplication.sharedInstance;
         NSError *error = nil;
         BOOL ok = [audioApp setInputMuteStateChangeHandler:^BOOL(BOOL inputShouldBeMuted) {
-            fprintf(stderr, "[MeetPods:native] AirPods mic mute event (AVAudioApplication) — inputShouldBeMuted=%d\n",
-                    inputShouldBeMuted);
+            BOOL currentlyMuted = AVAudioApplication.sharedInstance.isInputMuted;
+            fprintf(stderr, "[MeetPods:native] AirPods mic mute event (AVAudioApplication) — inputShouldBeMuted=%d (isInputMuted=%d)\n",
+                    inputShouldBeMuted, currentlyMuted);
+
+            // Only an AirPods gesture asks for the opposite of the current state. Two other
+            // calls reach this handler and must never toggle Meet:
+            //  - the echo of our own setInputMuted: (runs while that call is in flight);
+            //  - the replay of the stored state when the record session goes active
+            //    (requested == current).
+            if (settingInputMuted.load()) {
+                fprintf(stderr, "[MeetPods:native] AVAudioApplication: ignoring echo of SetInputMuted\n");
+                return YES;
+            }
+            if (inputShouldBeMuted == currentlyMuted) {
+                fprintf(stderr, "[MeetPods:native] AVAudioApplication: ignoring state replay (no change requested)\n");
+                return YES;
+            }
 
             if (!isDuplicateAirpodsMute(kMuteDedupWindowMs, "AVAudioApplication")) {
                 fireAirpodsMuteCallback(inputShouldBeMuted);
@@ -736,6 +778,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     exports.Set("isActive", Napi::Function::New(env, IsActive));
     exports.Set("startAudioInput", Napi::Function::New(env, StartAudioInput));
     exports.Set("stopAudioInput", Napi::Function::New(env, StopAudioInput));
+    exports.Set("setInputMuted", Napi::Function::New(env, SetInputMuted));
     exports.Set("playFeedbackSound", Napi::Function::New(env, PlayFeedbackSound));
     exports.Set("setFeedbackVolume", Napi::Function::New(env, SetFeedbackVolume));
     return exports;

@@ -117,6 +117,9 @@ if (!adapter) {
   });
 
   checkCallStatus();
+  // Report the initial state: a new document (reload, or Meet sending the left-call page to
+  // /home) would otherwise leave the previous document's active=true in place.
+  chrome.runtime.sendMessage({ type: 'status_changed', active: isInCall, muted: isMuted }).catch(() => {});
   startObserving();
   setInterval(pushStatusChange, POLL_INTERVAL_MS);
 }

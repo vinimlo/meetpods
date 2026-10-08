@@ -10,6 +10,7 @@ const mockAddon = {
   isActive: vi.fn().mockReturnValue(false),
   startAudioInput: vi.fn().mockReturnValue(true),
   stopAudioInput: vi.fn(),
+  setInputMuted: vi.fn().mockReturnValue(true),
 };
 
 // Intercept require() calls for the native addon
@@ -255,6 +256,30 @@ describe('MediaKeyManager', () => {
       // Should not throw
       mgr.stopAudioInput();
       expect(mockAddon.stopAudioInput).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('setInputMuted()', () => {
+    it('passes the mute state to the addon', async () => {
+      installAddonMock('dev');
+      const { MediaKeyManager } = await import('../media-key');
+      const mgr = new MediaKeyManager();
+
+      mgr.setInputMuted(true);
+      expect(mockAddon.setInputMuted).toHaveBeenCalledWith(true);
+    });
+
+    it('logs error when addon throws', async () => {
+      installAddonMock('dev');
+      const { MediaKeyManager } = await import('../media-key');
+      const mgr = new MediaKeyManager();
+
+      mockAddon.setInputMuted.mockImplementation(() => {
+        throw new Error('fail');
+      });
+      // Should not throw
+      mgr.setInputMuted(false);
+      expect(mockAddon.setInputMuted).toHaveBeenCalledWith(false);
     });
   });
 });

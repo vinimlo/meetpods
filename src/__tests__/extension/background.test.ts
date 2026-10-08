@@ -211,6 +211,74 @@ describe('background.ts', () => {
     });
   });
 
+  describe('call-end synthesis when tab disappears mid-call', () => {
+    function addActiveTab(tabId: number, url = `https://meet.google.com/tab-${tabId}`) {
+      tabUpdateListener(tabId, {}, { url, title: `Meet ${tabId}` });
+      onMessageHandler({ type: 'status_changed', active: true, muted: false }, { tab: { id: tabId } }, vi.fn());
+    }
+
+    function sentMeetStatusPayloads(): any[] {
+      return (wsInstance.send.mock.calls as [string][])
+        .map(([s]) => JSON.parse(s))
+        .filter((p: any) => p.type === 'meet_status');
+    }
+
+    it('closing the only active tab pushes meet_status active=false to Electron', async () => {
+      await load();
+      simulateWSOpen();
+      addActiveTab(10);
+      wsInstance.send.mockClear();
+
+      tabRemovedListener(10);
+
+      expect(wsInstance.send).toHaveBeenCalledWith(
+        JSON.stringify({ type: 'meet_status', active: false, muted: false, tabId: null }),
+      );
+    });
+
+    it('navigating the only active tab away from the platform pushes meet_status active=false', async () => {
+      await load();
+      simulateWSOpen();
+      addActiveTab(10);
+      wsInstance.send.mockClear();
+
+      tabUpdateListener(10, {}, { url: 'https://example.com' });
+
+      expect(wsInstance.send).toHaveBeenCalledWith(
+        JSON.stringify({ type: 'meet_status', active: false, muted: false, tabId: null }),
+      );
+    });
+
+    it('closing an inactive tab does not push an inactive meet_status', async () => {
+      await load();
+      simulateWSOpen();
+      tabUpdateListener(10, {}, { url: 'https://meet.google.com/abc' });
+      wsInstance.send.mockClear();
+
+      tabRemovedListener(10);
+
+      expect(sentMeetStatusPayloads().some((p) => p.active === false)).toBe(false);
+    });
+
+    it('closing one of multiple active tabs does not push (call still active elsewhere)', async () => {
+      await load();
+      simulateWSOpen();
+      addActiveTab(10);
+      addActiveTab(20);
+      wsInstance.send.mockClear();
+
+      tabRemovedListener(10);
+
+      expect(sentMeetStatusPayloads().some((p) => p.active === false)).toBe(false);
+    });
+
+    it('does not send when WebSocket is disconnected (no crash)', async () => {
+      await load();
+      addActiveTab(10);
+      expect(() => tabRemovedListener(10)).not.toThrow();
+    });
+  });
+
   describe('getBestMeetTab()', () => {
     it('returns null when no tabs', async () => {
       await load();
@@ -308,6 +376,31 @@ describe('background.ts', () => {
       const sent = JSON.parse(wsInstance.send.mock.calls[0][0]);
       expect(sent.tabId).toBe(7);
       expect(sent.platform).toBe('meet');
+    });
+
+    // Every Meet tab reports its initial state on load; an idle tab (e.g. Meet home opened
+    // during a call in another tab) must not switch MeetPods off.
+    it('does not relay an inactive status from a tab that was not in a call', async () => {
+      await load();
+      simulateWSOpen();
+      tabUpdateListener(7, {}, { url: 'https://meet.google.com/abc' });
+
+      onMessageHandler({ type: 'status_changed', active: false, muted: false }, { tab: { id: 7 } }, vi.fn());
+
+      expect(wsInstance.send).not.toHaveBeenCalled();
+    });
+
+    it('relays an inactive status when the tab was in a call', async () => {
+      await load();
+      simulateWSOpen();
+      tabUpdateListener(7, {}, { url: 'https://meet.google.com/abc' });
+      const sender = { tab: { id: 7 } };
+
+      onMessageHandler({ type: 'status_changed', active: true, muted: false }, sender, vi.fn());
+      onMessageHandler({ type: 'status_changed', active: false, muted: false }, sender, vi.fn());
+
+      const last = JSON.parse(wsInstance.send.mock.calls.at(-1)[0]);
+      expect(last).toMatchObject({ type: 'meet_status', active: false, tabId: 7 });
     });
 
     it('does not relay status_changed when WS not connected', async () => {

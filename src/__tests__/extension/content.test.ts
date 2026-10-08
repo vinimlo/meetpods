@@ -244,6 +244,22 @@ describe('content.ts', () => {
       );
     });
 
+    // A new document (reload, or Meet sending the left-call page to /home) gets a fresh
+    // content script whose initial state is "not in call" — it must say so, otherwise the
+    // previous document's active=true stays in the background and Electron forever.
+    it.each([
+      [false, false],
+      [true, true],
+    ])('reports its initial status on load (active=%s)', async (active, muted) => {
+      mockAdapter.findMuteButton.mockReturnValue(active ? { getAttribute: vi.fn(), click: vi.fn() } : null);
+      mockAdapter.isMuted.mockReturnValue(muted);
+      mockAdapter.isInCall.mockReturnValue(false);
+
+      await loadContent();
+
+      expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledWith({ type: 'status_changed', active, muted });
+    });
+
     it('does not send when status unchanged', async () => {
       mockAdapter.findMuteButton.mockReturnValue(null);
       mockAdapter.isInCall.mockReturnValue(false);

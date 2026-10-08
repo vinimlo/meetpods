@@ -219,3 +219,21 @@ Key points:
 - The subsequent `sendMessage()` opens a **new, independent** port — no conflict
 - This ensures Electron receives both the toggle result (via `sendResponse`) AND the status update (via `sendMessage`)
 - The `.catch(() => {})` silently handles the case where the service worker is restarting
+
+## 16. Input-Mute State Sync and Echo Filter (macOS 27)
+
+The AVAudioApplication handler is called for three different reasons, and only one is an AirPods gesture:
+
+| Call | How to recognize it (native handler) |
+| --- | --- |
+| Echo of our own `setInputMuted:` | Runs while that call is in flight (`settingInputMuted` flag) |
+| Replay of the stored state when the record session goes active | `inputShouldBeMuted == isInputMuted` |
+| AirPods gesture | `inputShouldBeMuted != isInputMuted` |
+
+The handler forwards only the gesture. Before this filter, the replay (always "unmuted", since the app never set a state) reached `handleAirpodsMute(false)` and the state-aware logic **unmuted Meet on every call start**, including the lobby.
+
+`syncInputMuteState()` in `src/main/index.ts` keeps macOS's per-app input-mute state equal to Meet's (`setInputMuted`), in this order inside `updateTrayState()`: `start()` (registers the handler — `setInputMuted` is rejected without it) → `setInputMuted(meetMuted)` → `startAudioInput()`.
+
+The extension briefly reports `active=true, muted=false` while Meet swaps the lobby for the call (mute button absent for a moment). Never trust a single status push as the user's intent.
+
+**Stem press is dead on macOS 27.0 (26A428), outside our code (found 2026-10-05):** `com.apple.audioaccessoryd.MuteState` is no longer posted, and `audiomxd` rejects every stem press for MeetPods with `audio app is not allowed to input mute (isOptedIn: 0, hasHandler: 1)`. Registering the handler sets `hasHandler`; `isOptedIn` is the app property `PrefersBluetoothAccessoryMutingMacOS`, which AVFAudio only sets when a system feature flag is on — AVFAudio logs "App (pid) not opted into stem click muting since feature flag is disabled" (string in the dyld shared cache). No public API sets it. With Chrome also recording, the error is "no recording audio apps found that are opted in". The press itself still reaches the Mac: `bluetoothd` logs `Received Software Mute (control cmd 0x27)` on every press. Probe: `log show --predicate 'process == "audiomxd" AND (eventMessage CONTAINS "input mute candidate" OR eventMessage CONTAINS "InputMuteAction")'`.

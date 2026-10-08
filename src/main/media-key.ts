@@ -10,6 +10,7 @@ interface NativeAddon {
   isActive(): boolean;
   startAudioInput(): boolean;
   stopAudioInput(): void;
+  setInputMuted(muted: boolean): boolean;
   playFeedbackSound(isMuted: boolean): void;
   setFeedbackVolume(volume: number): void;
 }
@@ -94,6 +95,15 @@ export class MediaKeyManager extends EventEmitter {
       console.log(`${TAG} stopAudioInput()`);
     } catch (err) {
       console.error(`${TAG} stopAudioInput() failed:`, err);
+    }
+  }
+
+  setInputMuted(muted: boolean): void {
+    try {
+      const ok = this.addon.setInputMuted(muted);
+      console.log(`${TAG} setInputMuted(${muted}) → ${ok}`);
+    } catch (err) {
+      console.error(`${TAG} setInputMuted() failed:`, err);
     }
   }
 

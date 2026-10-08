@@ -20,6 +20,7 @@ const { mockApp, mockSystemPreferences, mockMediaKeysInstance, mockBridgeInstanc
       setConsume: vi.fn(),
       startAudioInput: vi.fn().mockReturnValue(true),
       stopAudioInput: vi.fn(),
+      setInputMuted: vi.fn(),
       playFeedbackSound: vi.fn(),
       setFeedbackVolume: vi.fn(),
       on: vi.fn(),
@@ -615,6 +616,52 @@ describe('MeetPods main orchestration', () => {
       });
     });
 
+    describe('syncInputMuteState()', () => {
+      // macOS replays the app's stored input-mute state to the handler when the record
+      // session goes active. If that state disagrees with Meet, the replay looks like an
+      // AirPods "unmute" request and MeetPods would unmute the call on its own.
+      it('tells macOS the Meet mute state after registering the handler and before audio input starts', () => {
+        bridgeOnHandlers['meet-status']({ active: true, muted: true, tabId: 1 });
+
+        expect(mockMediaKeysInstance.setInputMuted).toHaveBeenCalledWith(true);
+        const [startOrder] = mockMediaKeysInstance.start.mock.invocationCallOrder;
+        const [syncOrder] = mockMediaKeysInstance.setInputMuted.mock.invocationCallOrder;
+        const [audioOrder] = mockMediaKeysInstance.startAudioInput.mock.invocationCallOrder;
+        expect(startOrder).toBeLessThan(syncOrder);
+        expect(syncOrder).toBeLessThan(audioOrder);
+      });
+
+      it('re-syncs when the Meet mute state changes during the call', () => {
+        bridgeOnHandlers['meet-status']({ active: true, muted: true, tabId: 1 });
+        bridgeOnHandlers['meet-status']({ active: true, muted: false, tabId: 1 });
+
+        expect(mockMediaKeysInstance.setInputMuted).toHaveBeenLastCalledWith(false);
+        expect(mockMediaKeysInstance.setInputMuted).toHaveBeenCalledTimes(2);
+      });
+
+      it('does not re-sync when the mute state is unchanged', () => {
+        bridgeOnHandlers['meet-status']({ active: true, muted: true, tabId: 1 });
+        bridgeOnHandlers['meet-status']({ active: true, muted: true, tabId: 1 });
+
+        expect(mockMediaKeysInstance.setInputMuted).toHaveBeenCalledTimes(1);
+      });
+
+      it('syncs again when a new call starts', () => {
+        bridgeOnHandlers['meet-status']({ active: true, muted: true, tabId: 1 });
+        bridgeOnHandlers['meet-status']({ active: false, muted: false, tabId: null });
+        bridgeOnHandlers['meet-status']({ active: true, muted: true, tabId: 1 });
+
+        expect(mockMediaKeysInstance.setInputMuted).toHaveBeenCalledTimes(2);
+      });
+
+      it('does not sync when the handler could not be registered', () => {
+        mockSystemPreferences.isTrustedAccessibilityClient.mockReturnValue(false);
+        bridgeOnHandlers['meet-status']({ active: true, muted: true, tabId: 1 });
+
+        expect(mockMediaKeysInstance.setInputMuted).not.toHaveBeenCalled();
+      });
+    });
+
     describe('pendingFeedback fallback', () => {
       it('fires feedback from meet-status push when toggleMute times out', async () => {
         // toggleMute returns failure (timeout) — pendingFeedback stays set
@@ -654,6 +701,28 @@ describe('MeetPods main orchestration', () => {
         expect(mockTrayInstance.flash).not.toHaveBeenCalled();
         expect(mockMediaKeysInstance.playFeedbackSound).not.toHaveBeenCalled();
         expect(mockShowMuteHud).not.toHaveBeenCalled();
+      });
+
+      // Seen in production logs: the extension's status push lands ~100ms before the
+      // toggle result, so the fallback fires first and the result must not fire again.
+      it.each([
+        ['play_pause', { key: 'play_pause' }],
+        ['airpods_mute', { key: 'airpods_mute', shouldBeMuted: true }],
+      ])('does not double-fire when meet-status push arrives before the %s toggle result', async (_name, event) => {
+        let resolveToggle!: (r: { success: boolean; muted: boolean }) => void;
+        mockBridgeInstance.toggleMute.mockReturnValue(new Promise((r) => (resolveToggle = r)));
+        bridgeOnHandlers['meet-status']({ active: true, muted: false, tabId: 1 });
+
+        const handled = mediaKeyOnHandlers['media-key'](event);
+        await vi.advanceTimersByTimeAsync(0);
+        bridgeOnHandlers['meet-status']({ active: true, muted: true, tabId: 1 });
+        resolveToggle({ success: true, muted: true });
+        await handled;
+        await vi.advanceTimersByTimeAsync(500);
+
+        expect(mockTrayInstance.flash).toHaveBeenCalledTimes(1);
+        expect(mockMediaKeysInstance.playFeedbackSound).toHaveBeenCalledTimes(1);
+        expect(mockShowMuteHud).toHaveBeenCalledTimes(1);
       });
 
       it('ignores stale pendingFeedback after timeout window', async () => {
