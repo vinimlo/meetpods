@@ -45,9 +45,19 @@ const { mockApp, mockSystemPreferences, mockMediaKeysInstance, mockBridgeInstanc
       setVolume: vi.fn(),
       setShowMuteHud: vi.fn(),
       setOnShowMuteHudChanged: vi.fn(),
+      setStemPressSource: vi.fn(),
+      setOnStemPressSourceChanged: vi.fn(),
     },
   }),
 );
+
+const { mockStemWatcherInstance, mockLoadSettings, mockSaveSettings } = vi.hoisted(() => ({
+  mockStemWatcherInstance: { start: vi.fn(), stop: vi.fn(), on: vi.fn() },
+  mockLoadSettings: vi.fn(),
+  mockSaveSettings: vi.fn(),
+}));
+
+const AUDIO_API_SETTINGS = { feedbackVolume: 0.4, showMuteHud: true, stemPressSource: 'audio-api' };
 
 // ── Mock: electron ──────────────────────────────────────────────────
 vi.mock('electron', () => ({
@@ -79,8 +89,15 @@ vi.mock('../tray', () => ({
 
 // ── Mock: settings ──────────────────────────────────────────────────
 vi.mock('../settings', () => ({
-  loadSettings: vi.fn().mockReturnValue({ feedbackVolume: 0.4, showMuteHud: true }),
-  saveSettings: vi.fn(),
+  loadSettings: mockLoadSettings,
+  saveSettings: mockSaveSettings,
+}));
+
+// ── Mock: stem-log-watcher ───────────────────────────────────────────
+vi.mock('../stem-log-watcher', () => ({
+  StemLogWatcher: function StemLogWatcher() {
+    return mockStemWatcherInstance;
+  },
 }));
 
 // ── Mock: volume-popup ──────────────────────────────────────────────
@@ -104,6 +121,7 @@ describe('MeetPods main orchestration', () => {
   let appOnHandlers: Record<string, Function>;
   let bridgeOnHandlers: Record<string, Function>;
   let mediaKeyOnHandlers: Record<string, Function>;
+  let stemWatcherOnHandlers: Record<string, Function>;
 
   function getTrayToggle(): (enabled: boolean) => void {
     return (mockTrayInstance as any)._toggleCb;
@@ -145,6 +163,12 @@ describe('MeetPods main orchestration', () => {
     // Capture mediaKeys.on() handlers
     mockMediaKeysInstance.on.mockImplementation((event: string, handler: Function) => {
       mediaKeyOnHandlers[event] = handler;
+    });
+
+    stemWatcherOnHandlers = {};
+    mockLoadSettings.mockReturnValue(AUDIO_API_SETTINGS);
+    mockStemWatcherInstance.on.mockImplementation((event: string, handler: Function) => {
+      stemWatcherOnHandlers[event] = handler;
     });
 
     // Import the module (triggers side effects)
@@ -662,6 +686,30 @@ describe('MeetPods main orchestration', () => {
       });
     });
 
+    describe('stem press source (Audio API)', () => {
+      it('tells the tray the source in use', () => {
+        expect(mockTrayInstance.setStemPressSource).toHaveBeenCalledWith('audio-api');
+      });
+
+      it('never follows the system log', () => {
+        bridgeOnHandlers['meet-status']({ active: true, muted: false, tabId: 1 });
+        expect(mockStemWatcherInstance.start).not.toHaveBeenCalled();
+      });
+
+      it('switching to System Log mid-call stops recording and follows the log', async () => {
+        bridgeOnHandlers['meet-status']({ active: true, muted: true, tabId: 1 });
+        mockMediaKeysInstance.stopAudioInput.mockClear();
+        const onSourceChanged = mockTrayInstance.setOnStemPressSourceChanged.mock.calls[0][0];
+
+        await onSourceChanged('system-log');
+
+        expect(mockSaveSettings).toHaveBeenCalledWith({ stemPressSource: 'system-log' });
+        expect(mockMediaKeysInstance.stopAudioInput).toHaveBeenCalled();
+        expect(mockStemWatcherInstance.start).toHaveBeenCalled();
+        expect(mockSystemPreferences.askForMediaAccess).not.toHaveBeenCalled();
+      });
+    });
+
     describe('pendingFeedback fallback', () => {
       it('fires feedback from meet-status push when toggleMute times out', async () => {
         // toggleMute returns failure (timeout) — pendingFeedback stays set
@@ -821,6 +869,7 @@ describe('MeetPods main orchestration', () => {
         expect(mockBridgeInstance.stop).toHaveBeenCalled();
         expect(mockTrayInstance.destroy).toHaveBeenCalled();
         expect(mockDestroyMuteHud).toHaveBeenCalled();
+        expect(mockStemWatcherInstance.stop).toHaveBeenCalled();
       });
     });
 
@@ -829,6 +878,112 @@ describe('MeetPods main orchestration', () => {
         appOnHandlers['window-all-closed']();
         expect(mockApp.quit).not.toHaveBeenCalled();
       });
+    });
+  });
+
+  describe('stem press source: system-log', () => {
+    beforeEach(async () => {
+      mockLoadSettings.mockReturnValue({ ...AUDIO_API_SETTINGS, stemPressSource: 'system-log' });
+      mockSystemPreferences.getMediaAccessStatus.mockReturnValue('not-determined');
+      await readyCallback();
+    });
+
+    const startCall = (muted = false) => bridgeOnHandlers['meet-status']({ active: true, muted, tabId: 1 });
+
+    it('does not ask for the microphone', () => {
+      expect(mockSystemPreferences.askForMediaAccess).not.toHaveBeenCalled();
+    });
+
+    it('tells the tray the source in use', () => {
+      expect(mockTrayInstance.setStemPressSource).toHaveBeenCalledWith('system-log');
+    });
+
+    it('keeps the media keys but never records the mic during a call', () => {
+      startCall(true);
+      expect(mockMediaKeysInstance.start).toHaveBeenCalled();
+      expect(mockMediaKeysInstance.startAudioInput).not.toHaveBeenCalled();
+      expect(mockMediaKeysInstance.setInputMuted).not.toHaveBeenCalled();
+    });
+
+    it('follows the log while a call is active', () => {
+      startCall();
+      expect(mockStemWatcherInstance.start).toHaveBeenCalled();
+
+      mockStemWatcherInstance.stop.mockClear();
+      bridgeOnHandlers['meet-status']({ active: false, muted: false, tabId: null });
+      expect(mockStemWatcherInstance.stop).toHaveBeenCalled();
+    });
+
+    it('stops following the log when MeetPods is disabled', () => {
+      startCall();
+      mockStemWatcherInstance.stop.mockClear();
+      getTrayToggle()(false);
+      expect(mockStemWatcherInstance.stop).toHaveBeenCalled();
+    });
+
+    it('does not follow the log when disabled', () => {
+      getTrayToggle()(false);
+      mockStemWatcherInstance.start.mockClear();
+      startCall();
+      expect(mockStemWatcherInstance.start).not.toHaveBeenCalled();
+    });
+
+    it('a stem press toggles Meet, with the AirPods feedback delay', async () => {
+      startCall();
+      mockBridgeInstance.toggleMute.mockResolvedValue({ success: true, muted: true });
+
+      await stemWatcherOnHandlers['stem-press']();
+
+      expect(mockBridgeInstance.toggleMute).toHaveBeenCalledTimes(1);
+      expect(mockShowMuteHud).toHaveBeenCalledWith(true);
+      expect(mockMediaKeysInstance.playFeedbackSound).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(300);
+      expect(mockMediaKeysInstance.playFeedbackSound).toHaveBeenCalledWith(true);
+    });
+
+    it('ignores airpods_mute from the native addon', async () => {
+      startCall();
+      await mediaKeyOnHandlers['media-key']({ key: 'airpods_mute', shouldBeMuted: true });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(mockBridgeInstance.toggleMute).not.toHaveBeenCalled();
+    });
+
+    // Review Focus
+    it('drops a second press within 500 ms', async () => {
+      startCall();
+      await stemWatcherOnHandlers['stem-press']();
+      vi.advanceTimersByTime(100);
+      await stemWatcherOnHandlers['stem-press']();
+      expect(mockBridgeInstance.toggleMute).toHaveBeenCalledTimes(1);
+    });
+
+    it('does nothing when the extension is disconnected', async () => {
+      startCall();
+      mockBridgeInstance.isConnected = false;
+      await stemWatcherOnHandlers['stem-press']();
+      expect(mockBridgeInstance.toggleMute).not.toHaveBeenCalled();
+    });
+
+    it('re-checks Meet for a press that lands after the call ended', async () => {
+      bridgeOnHandlers['meet-status']({ active: false, muted: false, tabId: null });
+      mockBridgeInstance.queryMeetStatus.mockResolvedValue({ active: false, muted: false, tabId: null });
+      await stemWatcherOnHandlers['stem-press']();
+      expect(mockBridgeInstance.queryMeetStatus).toHaveBeenCalled();
+      expect(mockBridgeInstance.toggleMute).not.toHaveBeenCalled();
+    });
+
+    it('switching to Audio API mid-call records the mic again and stops following the log', async () => {
+      startCall(true);
+      mockStemWatcherInstance.stop.mockClear();
+      const onSourceChanged = mockTrayInstance.setOnStemPressSourceChanged.mock.calls[0][0];
+
+      await onSourceChanged('audio-api');
+
+      expect(mockSaveSettings).toHaveBeenCalledWith({ stemPressSource: 'audio-api' });
+      expect(mockSystemPreferences.askForMediaAccess).toHaveBeenCalledWith('microphone');
+      expect(mockStemWatcherInstance.stop).toHaveBeenCalled();
+      expect(mockMediaKeysInstance.setInputMuted).toHaveBeenCalledWith(true);
+      expect(mockMediaKeysInstance.startAudioInput).toHaveBeenCalled();
     });
   });
 });

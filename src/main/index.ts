@@ -2,7 +2,8 @@ import { app, systemPreferences } from 'electron';
 import { MediaKeyManager } from './media-key';
 import { ExtensionBridge, MeetStatus } from './native-msg';
 import { MeetPodsTray, TrayState } from './tray';
-import { loadSettings, saveSettings } from './settings';
+import { loadSettings, saveSettings, type StemPressSource } from './settings';
+import { StemLogWatcher } from './stem-log-watcher';
 import { showVolumePopup } from './volume-popup';
 import { showMuteHud, destroyMuteHud } from './mute-hud';
 
@@ -20,9 +21,13 @@ let mediaKeysActive = false;
 let syncedInputMuted: boolean | null = null;
 let showMuteHudEnabled = true;
 let pendingFeedback: { expectedMuted: boolean; timestamp: number; isAirpods: boolean } | null = null;
+let stemPressSource: StemPressSource = 'audio-api';
+// No side effects until start(): follows bluetoothd's log line when the source is system-log.
+const stemWatcher = new StemLogWatcher();
 
 const MEDIA_KEY_DEBOUNCE_MS = 500;
 const PENDING_FEEDBACK_TIMEOUT_MS = 5000;
+const AIRPODS_FEEDBACK_DELAY_MS = 300;
 
 function shouldConsume(): boolean {
   return enabled && bridge?.isConnected && lastMeetStatus.active;
@@ -37,7 +42,7 @@ function syncConsume(): void {
 }
 
 function syncAudioInput(): void {
-  const shouldBeActive = enabled && lastMeetStatus.active;
+  const shouldBeActive = stemPressSource === 'audio-api' && enabled && lastMeetStatus.active;
   if (shouldBeActive && !audioInputActive) {
     audioInputActive = mediaKeys?.startAudioInput() ?? false;
     console.log(`${TAG} syncAudioInput() → started (ok=${audioInputActive})`);
@@ -65,13 +70,21 @@ function syncMediaKeys(): void {
 // (unmuted), the replay reads as an AirPods "unmute" request and unmutes the call.
 // Needs the handler registered (start()) — macOS rejects the call otherwise.
 function syncInputMuteState(): void {
-  if (!mediaKeysActive || !lastMeetStatus.active) {
+  if (stemPressSource !== 'audio-api' || !mediaKeysActive || !lastMeetStatus.active) {
     syncedInputMuted = null;
     return;
   }
   if (syncedInputMuted === lastMeetStatus.muted) return;
   mediaKeys.setInputMuted(lastMeetStatus.muted);
   syncedInputMuted = lastMeetStatus.muted;
+}
+
+function syncStemWatcher(): void {
+  if (stemPressSource === 'system-log' && enabled && lastMeetStatus.active) {
+    stemWatcher.start();
+  } else {
+    stemWatcher.stop();
+  }
 }
 
 function updateTrayState(): void {
@@ -84,11 +97,22 @@ function updateTrayState(): void {
   syncMediaKeys();
   syncInputMuteState();
   syncAudioInput();
+  syncStemWatcher();
 }
 
 let lastMediaKeyHandledMs = 0;
 
-async function handleMediaKey(): Promise<void> {
+// After an AirPods press, let the system's own response to the gesture finish (the
+// audioaccessoryd routing transition, or macOS 27's "rejected" chime) before our sound.
+function playToggleSound(muted: boolean, isAirpods: boolean): void {
+  if (isAirpods) {
+    setTimeout(() => mediaKeys.playFeedbackSound(muted), AIRPODS_FEEDBACK_DELAY_MS);
+  } else {
+    mediaKeys.playFeedbackSound(muted);
+  }
+}
+
+async function handleMediaKey(isAirpods = false): Promise<void> {
   const now = Date.now();
   const elapsed = now - lastMediaKeyHandledMs;
   console.log(
@@ -117,7 +141,7 @@ async function handleMediaKey(): Promise<void> {
   }
 
   console.log(`${TAG} handleMediaKey() — toggling mute`);
-  pendingFeedback = { expectedMuted: !lastMeetStatus.muted, timestamp: Date.now(), isAirpods: false };
+  pendingFeedback = { expectedMuted: !lastMeetStatus.muted, timestamp: Date.now(), isAirpods };
   const result = await bridge.toggleMute();
   console.log(
     `${TAG} handleMediaKey() — result: success=${result.success}, muted=${result.muted}, error=${result.error}`,
@@ -132,7 +156,7 @@ async function handleMediaKey(): Promise<void> {
     updateTrayState();
     if (feedbackAlreadyGiven) return;
     tray.flash();
-    mediaKeys.playFeedbackSound(result.muted);
+    playToggleSound(result.muted, isAirpods);
     if (showMuteHudEnabled) showMuteHud(result.muted);
   } else {
     console.log(
@@ -191,8 +215,7 @@ async function handleAirpodsMute(shouldBeMuted: boolean): Promise<void> {
     updateTrayState();
     if (feedbackAlreadyGiven) return;
     tray.flash();
-    // Delay: let audioaccessoryd finish routing transition after AirPods mute gesture
-    setTimeout(() => mediaKeys.playFeedbackSound(result.muted!), 300);
+    playToggleSound(result.muted, true);
     if (showMuteHudEnabled) showMuteHud(result.muted);
   } else {
     console.log(
@@ -207,22 +230,25 @@ function checkAccessibilityPermission(): boolean {
   return trusted;
 }
 
+// The Audio API source records the mic so AVAudioApplication can hand it the gesture.
+async function ensureMicPermission(): Promise<void> {
+  const micStatus = systemPreferences.getMediaAccessStatus('microphone');
+  console.log(`${TAG} Microphone permission: ${micStatus}`);
+  if (micStatus === 'granted') return;
+  console.log(`${TAG} Requesting microphone access for AirPods mute gesture support...`);
+  const micGranted = await systemPreferences.askForMediaAccess('microphone');
+  console.log(
+    `${TAG} Microphone access ${micGranted ? 'GRANTED' : 'DENIED'} — ${micGranted ? 'AVAudioApplication will suppress notifications' : 'using Darwin notification fallback'}`,
+  );
+}
+
 app.whenReady().then(async () => {
   console.log(`${TAG} App ready, initializing...`);
 
-  // Request microphone permission for AirPods mute gesture support.
-  // AVAudioApplication.setInputMuteStateChangeHandler needs mic access to suppress
-  // the "Cannot Control Mic with AirPods" notification. Even without it, the Darwin
-  // notification fallback in the native addon will still detect the gesture.
-  const micStatus = systemPreferences.getMediaAccessStatus('microphone');
-  console.log(`${TAG} Microphone permission: ${micStatus}`);
-  if (micStatus !== 'granted') {
-    console.log(`${TAG} Requesting microphone access for AirPods mute gesture support...`);
-    const micGranted = await systemPreferences.askForMediaAccess('microphone');
-    console.log(
-      `${TAG} Microphone access ${micGranted ? 'GRANTED' : 'DENIED'} — ${micGranted ? 'AVAudioApplication will suppress notifications' : 'using Darwin notification fallback'}`,
-    );
-  }
+  const settings = loadSettings();
+  stemPressSource = settings.stemPressSource;
+  console.log(`${TAG} AirPods stem press source: ${stemPressSource}`);
+  if (stemPressSource === 'audio-api') await ensureMicPermission();
 
   tray = new MeetPodsTray((newEnabled) => {
     console.log(`${TAG} Tray toggle: enabled=${newEnabled}`);
@@ -263,11 +289,7 @@ app.whenReady().then(async () => {
         const isAirpods = pendingFeedback.isAirpods;
         pendingFeedback = null;
         tray.flash();
-        if (isAirpods) {
-          setTimeout(() => mediaKeys.playFeedbackSound(status.muted), 300);
-        } else {
-          mediaKeys.playFeedbackSound(status.muted);
-        }
+        playToggleSound(status.muted, isAirpods);
         if (showMuteHudEnabled) showMuteHud(status.muted);
       } else {
         console.log(`${TAG} pendingFeedback expired (elapsed=${elapsed}ms) — ignoring`);
@@ -278,8 +300,7 @@ app.whenReady().then(async () => {
 
   mediaKeys = new MediaKeyManager();
 
-  // Load saved settings and apply them
-  const settings = loadSettings();
+  // Apply saved settings
   const savedVolume = Math.max(0, Math.min(1, settings.feedbackVolume));
   mediaKeys.setFeedbackVolume(savedVolume);
   tray.setVolume(savedVolume * 100);
@@ -289,6 +310,15 @@ app.whenReady().then(async () => {
   tray.setOnShowMuteHudChanged((show) => {
     showMuteHudEnabled = show;
     saveSettings({ showMuteHud: show });
+  });
+
+  tray.setStemPressSource(stemPressSource);
+  tray.setOnStemPressSourceChanged(async (source) => {
+    console.log(`${TAG} AirPods stem press source → ${source}`);
+    stemPressSource = source;
+    saveSettings({ stemPressSource: source });
+    if (source === 'audio-api') await ensureMicPermission();
+    updateTrayState();
   });
 
   tray.setOnTestSound(() => {
@@ -310,12 +340,21 @@ app.whenReady().then(async () => {
     if (event.key === 'play_pause') {
       await handleMediaKey();
     } else if (event.key === 'airpods_mute') {
+      if (stemPressSource === 'system-log') {
+        console.log(`${TAG} airpods_mute ignored — the stem press comes from the system log`);
+        return;
+      }
       await handleAirpodsMute(event.shouldBeMuted);
     }
   });
 
   mediaKeys.on('error', (err) => {
     console.error(`${TAG} Media key error:`, err);
+  });
+
+  stemWatcher.on('stem-press', async () => {
+    console.log(`${TAG} stem-press event received`);
+    await handleMediaKey(true);
   });
 });
 
@@ -328,6 +367,7 @@ app.on('before-quit', () => {
   audioInputActive = false;
   mediaKeysActive = false;
   mediaKeys?.stop();
+  stemWatcher.stop();
   bridge?.stop();
   tray?.destroy();
   destroyMuteHud();
