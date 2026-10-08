@@ -58,7 +58,7 @@
     "eslint": "^10.0.1",
     "eslint-config-prettier": "^10.1.8",
     "node-addon-api": "8.5.0",
-    "node-gyp": "12.2.0",
+    "node-gyp": "13.1.0",
     "prettier": "^3.8.1",
     "sharp": "0.34.5",
     "typescript": "5.9.3",
