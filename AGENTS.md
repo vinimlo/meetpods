@@ -65,17 +65,19 @@ Native (C++/ObjC++ NAPI) ↔ Electron (TypeScript) ↔ Chrome Extension (JS/WebS
 
 ## 2b. Key Files
 
-| File                          | Purpose                                         |
-| ----------------------------- | ----------------------------------------------- |
-| `src/main/index.ts`           | Electron entry point, app lifecycle             |
-| `src/main/media-key.ts`       | Native addon wrapper + event handling           |
-| `src/main/native-msg.ts`      | WebSocket server (port 18432), extension bridge |
-| `src/main/tray.ts`            | Menu bar icon + context menu                    |
-| `src/extension/background.ts` | Service worker, tab tracking                    |
-| `src/extension/content.ts`    | Meet DOM interaction, mute toggle               |
-| `src/native/media_key_tap.cc` | C++/ObjC++ — CGEventTap + Darwin + AUHAL        |
-| `electron-builder.yml`        | Production packaging config                     |
-| `Makefile`                    | Developer workflow targets                      |
+| File                           | Purpose                                              |
+| ------------------------------ | ---------------------------------------------------- |
+| `src/main/index.ts`            | Electron entry point, app lifecycle                  |
+| `src/main/media-key.ts`        | Native addon wrapper + event handling                |
+| `src/main/native-msg.ts`       | WebSocket server (port 18432), extension bridge      |
+| `src/main/tray.ts`             | Menu bar icon + context menu                         |
+| `src/main/stem-log-watcher.ts` | Follows bluetoothd's stem press log line (macOS 27)  |
+| `src/main/settings.ts`         | `settings.json` in userData, incl. `stemPressSource` |
+| `src/extension/background.ts`  | Service worker, tab tracking                         |
+| `src/extension/content.ts`     | Meet DOM interaction, mute toggle                    |
+| `src/native/media_key_tap.cc`  | C++/ObjC++ — CGEventTap + Darwin + AUHAL             |
+| `electron-builder.yml`         | Production packaging config                          |
+| `Makefile`                     | Developer workflow targets                           |
 
 ## 3. AirPods Event Architecture on macOS
 
@@ -224,11 +226,11 @@ Key points:
 
 The AVAudioApplication handler is called for three different reasons, and only one is an AirPods gesture:
 
-| Call | How to recognize it (native handler) |
-| --- | --- |
-| Echo of our own `setInputMuted:` | Runs while that call is in flight (`settingInputMuted` flag) |
-| Replay of the stored state when the record session goes active | `inputShouldBeMuted == isInputMuted` |
-| AirPods gesture | `inputShouldBeMuted != isInputMuted` |
+| Call                                                           | How to recognize it (native handler)                         |
+| -------------------------------------------------------------- | ------------------------------------------------------------ |
+| Echo of our own `setInputMuted:`                               | Runs while that call is in flight (`settingInputMuted` flag) |
+| Replay of the stored state when the record session goes active | `inputShouldBeMuted == isInputMuted`                         |
+| AirPods gesture                                                | `inputShouldBeMuted != isInputMuted`                         |
 
 The handler forwards only the gesture. Before this filter, the replay (always "unmuted", since the app never set a state) reached `handleAirpodsMute(false)` and the state-aware logic **unmuted Meet on every call start**, including the lobby.
 
@@ -237,3 +239,5 @@ The handler forwards only the gesture. Before this filter, the replay (always "u
 The extension briefly reports `active=true, muted=false` while Meet swaps the lobby for the call (mute button absent for a moment). Never trust a single status push as the user's intent.
 
 **Stem press is dead on macOS 27.0 (26A428), outside our code (found 2026-10-05):** `com.apple.audioaccessoryd.MuteState` is no longer posted, and `audiomxd` rejects every stem press for MeetPods with `audio app is not allowed to input mute (isOptedIn: 0, hasHandler: 1)`. Registering the handler sets `hasHandler`; `isOptedIn` is the app property `PrefersBluetoothAccessoryMutingMacOS`, which AVFAudio only sets when a system feature flag is on — AVFAudio logs "App (pid) not opted into stem click muting since feature flag is disabled" (string in the dyld shared cache). No public API sets it. With Chrome also recording, the error is "no recording audio apps found that are opted in". The press itself still reaches the Mac: `bluetoothd` logs `Received Software Mute (control cmd 0x27)` on every press. Probe: `log show --predicate 'process == "audiomxd" AND (eventMessage CONTAINS "input mute candidate" OR eventMessage CONTAINS "InputMuteAction")'`.
+
+**Workaround — `stemPressSource` (2026-10-08):** `settings.json` key, also the tray submenu **AirPods Stem Press**. `system-log` (default on macOS 27+) runs `StemLogWatcher` during calls: it spawns `/usr/bin/log stream --style ndjson --predicate 'process == "bluetoothd" AND eventMessage CONTAINS "Received Software Mute"'` and toggles Meet on every line, like the play/pause key. In this mode MeetPods does not record (no AUHAL, no `setInputMuted`) and drops `airpods_mute` from the addon, so a press never toggles twice. `audio-api` is the path above, unchanged — switch back when Apple turns the feature flag on. The rejected chime still plays in `system-log` mode; MeetPods's sound follows 300 ms later. Latency measured on 27.0.1: 0–51 ms from bluetoothd's timestamp to the watcher. If presses stop arriving, check that the line still exists: `log stream --predicate 'process == "bluetoothd" AND eventMessage CONTAINS "Software Mute"'` and press the stem during a call.

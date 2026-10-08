@@ -83,7 +83,7 @@ Three components work together:
 | **Native addon** (C++/ObjC++)      | Uses macOS `CGEventTap` to capture media key events at the system level       |
 | **Chrome extension** (Manifest V3) | Detects active Meet calls, clicks the mute button in the DOM                  |
 
-The app also listens for **AirPods stem-hold mute gestures** via `AVAudioApplication` (macOS 14+), suppressing the "Cannot Control Mic" system notification.
+The app also listens for **AirPods stem-hold mute gestures** via `AVAudioApplication` (macOS 14+), suppressing the "Cannot Control Mic" system notification. On macOS 27, where the system no longer hands that gesture to third-party apps, MeetPods follows the press in the system log instead (tray → **AirPods Stem Press** → **System Log**, the default there); macOS still plays its own "rejected" chime before MeetPods's sound.
 
 You can also **toggle mute directly from the extension popup** by clicking the microphone status row during an active call — no media keys needed.
 
