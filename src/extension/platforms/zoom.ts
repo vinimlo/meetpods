@@ -7,7 +7,12 @@ const MUTE_BUTTON_SELECTORS = [
   '.footer-button-base__img-layer button[aria-label*="mute" i]',
 ];
 
-const CALL_INDICATORS = ['.meeting-app', '.meeting-info-container', '.footer__btns-container', '[class*="meeting-client"]'];
+const CALL_INDICATORS = [
+  '.meeting-app',
+  '.meeting-info-container',
+  '.footer__btns-container',
+  '[class*="meeting-client"]',
+];
 
 export const zoomAdapter: PlatformAdapter = {
   platformId: 'zoom',

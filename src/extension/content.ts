@@ -50,9 +50,7 @@ if (!adapter) {
       );
       return Promise.resolve({ success: false, error: 'Mute button not found' });
     }
-    console.log(
-      `${TAG} toggleMute() — clicking mute button (aria-label=${muteButton.getAttribute('aria-label')})`,
-    );
+    console.log(`${TAG} toggleMute() — clicking mute button (aria-label=${muteButton.getAttribute('aria-label')})`);
     isToggling = true;
     muteButton.click();
     return new Promise((resolve) => {

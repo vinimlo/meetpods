@@ -35,28 +35,34 @@ describe('teamsAdapter', () => {
 
   describe('isMuted()', () => {
     it('returns true when aria-pressed is true', () => {
-      const btn = { getAttribute: vi.fn().mockImplementation((attr: string) => {
-        if (attr === 'aria-pressed') return 'true';
-        return null;
-      }) } as any;
+      const btn = {
+        getAttribute: vi.fn().mockImplementation((attr: string) => {
+          if (attr === 'aria-pressed') return 'true';
+          return null;
+        }),
+      } as any;
       expect(teamsAdapter.isMuted(btn)).toBe(true);
     });
 
     it('returns true when aria-label contains unmute', () => {
-      const btn = { getAttribute: vi.fn().mockImplementation((attr: string) => {
-        if (attr === 'aria-pressed') return 'false';
-        if (attr === 'aria-label') return 'Unmute microphone';
-        return null;
-      }) } as any;
+      const btn = {
+        getAttribute: vi.fn().mockImplementation((attr: string) => {
+          if (attr === 'aria-pressed') return 'false';
+          if (attr === 'aria-label') return 'Unmute microphone';
+          return null;
+        }),
+      } as any;
       expect(teamsAdapter.isMuted(btn)).toBe(true);
     });
 
     it('returns false when aria-pressed is false and label says mute', () => {
-      const btn = { getAttribute: vi.fn().mockImplementation((attr: string) => {
-        if (attr === 'aria-pressed') return 'false';
-        if (attr === 'aria-label') return 'Mute microphone';
-        return null;
-      }) } as any;
+      const btn = {
+        getAttribute: vi.fn().mockImplementation((attr: string) => {
+          if (attr === 'aria-pressed') return 'false';
+          if (attr === 'aria-label') return 'Mute microphone';
+          return null;
+        }),
+      } as any;
       expect(teamsAdapter.isMuted(btn)).toBe(false);
     });
   });

@@ -166,7 +166,9 @@ function getTargetTab(): number | null {
     `${TAG} getTargetTab() — meetTabs=${meetTabs.size}, pinnedTabId=${pinnedTabId}, pinnedManually=${pinnedManually}`,
   );
   for (const [tabId, info] of meetTabs) {
-    console.log(`${TAG}   tab ${tabId}: active=${info.active}, muted=${info.muted}, platform=${info.platform}, title="${info.title}"`);
+    console.log(
+      `${TAG}   tab ${tabId}: active=${info.active}, muted=${info.muted}, platform=${info.platform}, title="${info.title}"`,
+    );
   }
 
   // 1. Pinned tab — if it exists and has an active call

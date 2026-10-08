@@ -7,7 +7,12 @@ const MUTE_BUTTON_SELECTORS = [
   'button[title*="mute" i]:not([title*="video" i])',
 ];
 
-const CALL_INDICATORS = ['[data-tid="calling-screen"]', '.calling-controls-section', '#roster-button', '[data-tid="call-duration"]'];
+const CALL_INDICATORS = [
+  '[data-tid="calling-screen"]',
+  '.calling-controls-section',
+  '#roster-button',
+  '[data-tid="call-duration"]',
+];
 
 export const teamsAdapter: PlatformAdapter = {
   platformId: 'teams',
