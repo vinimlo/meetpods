@@ -1,5 +1,6 @@
 import { Tray, Menu, nativeImage, app } from 'electron';
 import path from 'path';
+import { checkForUpdates } from './updater';
 
 export type TrayState = 'idle' | 'in-call' | 'muted';
 
@@ -95,6 +96,10 @@ export class MeetPodsTray {
       },
       { type: 'separator' },
       {
+        label: 'Check for Updates...',
+        click: () => checkForUpdates(),
+      },
+      {
         label: `About MeetPods v${app.getVersion()}`,
         enabled: false,
       },
@@ -144,6 +149,10 @@ export class MeetPodsTray {
 
   setOnShowMuteHudChanged(handler: (show: boolean) => void): void {
     this.onShowMuteHudChanged = handler;
+  }
+
+  checkForUpdatesSilent(): void {
+    checkForUpdates(true);
   }
 
   destroy(): void {
