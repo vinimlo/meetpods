@@ -187,6 +187,25 @@ describe('StemLogWatcher', () => {
     expect(children.length).toBe(4);
   });
 
+  // `log stream` refuses standard (non-admin) accounts; retrying cannot help.
+  it('gives up for the rest of the call when log stream needs an admin account', () => {
+    watcher.start();
+    latest().stderr.emit('data', Buffer.from("log: Must be admin to run 'stream' command\n"));
+    latest().emit('exit', 64, null);
+    vi.advanceTimersByTime(60_000);
+    expect(children.length).toBe(1);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('needs an admin account'));
+  });
+
+  it('tries again on the next call after giving up', () => {
+    watcher.start();
+    latest().stderr.emit('data', Buffer.from("log: Must be admin to run 'stream' command\n"));
+    latest().emit('exit', 64, null);
+    watcher.stop();
+    watcher.start();
+    expect(children.length).toBe(2);
+  });
+
   it('logs what the stream writes to stderr', () => {
     watcher.start();
     latest().stderr.emit('data', Buffer.from('log: Cannot run while sandboxed\n'));

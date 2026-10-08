@@ -13,6 +13,8 @@ const LOG_STREAM_ARGS = [
   '--predicate',
   `process == "bluetoothd" AND eventMessage CONTAINS "${PRESS_MARKER}"`,
 ];
+// `log stream` refuses standard (non-admin) accounts with this text on stderr.
+const ADMIN_REQUIRED = 'Must be admin';
 const FIRST_RESTART_DELAY_MS = 1000;
 const MAX_RESTART_DELAY_MS = 30_000;
 
@@ -23,11 +25,13 @@ export class StemLogWatcher extends EventEmitter {
   private buffer = '';
   private restartDelayMs = FIRST_RESTART_DELAY_MS;
   private restartTimer: NodeJS.Timeout | null = null;
+  private needsAdmin = false;
 
   start(): void {
     if (this.running) return;
     this.running = true;
     this.restartDelayMs = FIRST_RESTART_DELAY_MS;
+    this.needsAdmin = false;
     this.spawnStream();
   }
 
@@ -54,7 +58,9 @@ export class StemLogWatcher extends EventEmitter {
       if (child === this.child) this.onData(chunk);
     });
     child.stderr.on('data', (data: Buffer) => {
-      console.error(`${TAG} log stream stderr: ${data.toString().trim()}`);
+      const text = data.toString().trim();
+      console.error(`${TAG} log stream stderr: ${text}`);
+      if (text.includes(ADMIN_REQUIRED)) this.needsAdmin = true;
     });
     child.on('error', (err) => {
       console.error(`${TAG} log stream failed:`, err);
@@ -71,6 +77,12 @@ export class StemLogWatcher extends EventEmitter {
   private onStreamGone(child: ChildProcessWithoutNullStreams): void {
     if (child !== this.child) return;
     this.child = null;
+    if (this.needsAdmin) {
+      console.error(
+        `${TAG} log stream needs an admin account — no stem presses from the system log until the next call`,
+      );
+      return;
+    }
     const delay = this.restartDelayMs;
     this.restartDelayMs = Math.min(delay * 2, MAX_RESTART_DELAY_MS);
     console.log(`${TAG} restarting log stream in ${delay} ms`);
