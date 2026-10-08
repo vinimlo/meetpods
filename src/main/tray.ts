@@ -1,6 +1,7 @@
 import { Tray, Menu, nativeImage, app } from 'electron';
 import path from 'path';
 import { checkForUpdates } from './updater';
+import type { StemPressSource } from './settings';
 
 export type TrayState = 'idle' | 'in-call' | 'muted';
 
@@ -14,6 +15,8 @@ export class MeetPodsTray {
   private onVolumeClick: (() => void) | null = null;
   private onTestSound: (() => void) | null = null;
   private onShowMuteHudChanged: ((show: boolean) => void) | null = null;
+  private stemPressSource: StemPressSource = 'system-log';
+  private onStemPressSourceChanged: ((source: StemPressSource) => void) | null = null;
 
   constructor(onToggleEnabled: (enabled: boolean) => void) {
     this.onToggleEnabled = onToggleEnabled;
@@ -94,6 +97,23 @@ export class MeetPodsTray {
           this.updateMenu();
         },
       },
+      {
+        label: 'AirPods Stem Press',
+        submenu: [
+          {
+            label: 'System Log',
+            type: 'radio',
+            checked: this.stemPressSource === 'system-log',
+            click: () => this.selectStemPressSource('system-log'),
+          },
+          {
+            label: 'Audio API',
+            type: 'radio',
+            checked: this.stemPressSource === 'audio-api',
+            click: () => this.selectStemPressSource('audio-api'),
+          },
+        ],
+      },
       { type: 'separator' },
       {
         label: 'Check for Updates...',
@@ -149,6 +169,22 @@ export class MeetPodsTray {
 
   setOnShowMuteHudChanged(handler: (show: boolean) => void): void {
     this.onShowMuteHudChanged = handler;
+  }
+
+  setStemPressSource(source: StemPressSource): void {
+    this.stemPressSource = source;
+    this.updateMenu();
+  }
+
+  setOnStemPressSourceChanged(handler: (source: StemPressSource) => void): void {
+    this.onStemPressSourceChanged = handler;
+  }
+
+  private selectStemPressSource(source: StemPressSource): void {
+    if (source === this.stemPressSource) return;
+    this.stemPressSource = source;
+    this.onStemPressSourceChanged?.(source);
+    this.updateMenu();
   }
 
   checkForUpdatesSilent(): void {

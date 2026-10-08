@@ -238,4 +238,43 @@ describe('MeetPodsTray', () => {
       expect(hudItem.checked).toBe(false);
     });
   });
+
+  describe('AirPods Stem Press submenu', () => {
+    const submenu = () => mocks.menuTemplate.find((i: any) => i.label === 'AirPods Stem Press').submenu;
+    const item = (label: string) => submenu().find((i: any) => i.label === label);
+
+    it('sits right after Show Mute HUD', () => {
+      const labels = mocks.menuTemplate.map((i: any) => i.label);
+      expect(labels.indexOf('AirPods Stem Press')).toBe(labels.indexOf('Show Mute HUD') + 1);
+    });
+
+    it('checks the source the app is using', () => {
+      tray.setStemPressSource('audio-api');
+      expect(item('Audio API')).toMatchObject({ type: 'radio', checked: true });
+      expect(item('System Log')).toMatchObject({ type: 'radio', checked: false });
+    });
+
+    it('reports a new choice and moves the check', () => {
+      const handler = vi.fn();
+      tray.setOnStemPressSourceChanged(handler);
+      tray.setStemPressSource('system-log');
+      item('Audio API').click();
+      expect(handler).toHaveBeenCalledWith('audio-api');
+      expect(item('Audio API').checked).toBe(true);
+    });
+
+    it('does not report the source that is already selected', () => {
+      const handler = vi.fn();
+      tray.setOnStemPressSourceChanged(handler);
+      tray.setStemPressSource('system-log');
+      item('System Log').click();
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('accepts a choice before a handler is set', () => {
+      tray.setStemPressSource('system-log');
+      expect(() => item('Audio API').click()).not.toThrow();
+      expect(item('Audio API').checked).toBe(true);
+    });
+  });
 });
